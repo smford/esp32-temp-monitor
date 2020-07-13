@@ -81,8 +81,28 @@ void configureWebServer() {
       request->send(200, "text/html", reboot_html);
       logmessage += " Auth: Success";
       Serial.println(logmessage);
-      if (config.syslogenable) { syslog.log(logmessage); }
+      if (config.syslogenable) {
+        syslog.log(logmessage);
+      }
       shouldReboot = true;
+    } else {
+      logmessage += " Auth: Failed";
+      Serial.println(logmessage);
+      if (config.syslogenable) {
+        syslog.log(logmessage);
+      }
+      return request->requestAuthentication();
+    }
+  });
+
+  server->on("/listfiles", HTTP_GET, [](AsyncWebServerRequest * request)
+  {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    if (checkUserWebAuth(request)) {
+      logmessage += " Auth: Success";
+      Serial.println(logmessage);
+      if (config.syslogenable) { syslog.log(logmessage); }
+      request->send(200, "text/plain", listFiles(true));
     } else {
       logmessage += " Auth: Failed";
       Serial.println(logmessage);
@@ -91,6 +111,52 @@ void configureWebServer() {
     }
   });
 
+  server->on("/file", HTTP_GET, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    if (checkUserWebAuth(request)) {
+      logmessage += " Auth: Success";
+      Serial.println(logmessage);
+      if (config.syslogenable) { syslog.log(logmessage); }
+
+      printWebAdminArgs(request);
+
+      if (request->hasParam("name") && request->hasParam("action")) {
+        const char *fileName = request->getParam("name")->value().c_str();
+        const char *fileAction = request->getParam("action")->value().c_str();
+
+        logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url() + "?name=" + String(fileName) + "&action=" + String(fileAction);
+
+        if (!SPIFFS.exists(fileName)) {
+          Serial.println(logmessage + " ERROR: file does not exist");
+          if (config.syslogenable) { syslog.log(logmessage + " ERROR: file does not exist"); }
+          request->send(400, "text/plain", "ERROR: file does not exist");
+        } else {
+          Serial.println(logmessage + " file exists");
+          if (config.syslogenable) { syslog.log(logmessage + " file exists"); }
+          if (strcmp(fileAction, "download") == 0) {
+            logmessage += " downloaded";
+            request->send(SPIFFS, fileName, "application/octet-stream");
+          } else if (strcmp(fileAction, "delete") == 0) {
+            logmessage += " deleted";
+            SPIFFS.remove(fileName);
+            request->send(200, "text/plain", "Deleted File: " + String(fileName));
+          } else {
+            logmessage += " ERROR: invalid action param supplied";
+            request->send(400, "text/plain", "ERROR: invalid action param supplied");
+          }
+          Serial.println(logmessage);
+          if (config.syslogenable) { syslog.log(logmessage); }
+        }
+      } else {
+        request->send(400, "text/plain", "ERROR: name and action params required");
+      }
+    } else {
+      logmessage += " Auth: Failed";
+      Serial.println(logmessage);
+      if (config.syslogenable) { syslog.log(logmessage); }
+      return request->requestAuthentication();
+    }
+  });
 }
 
 void notFound(AsyncWebServerRequest *request) {
@@ -115,4 +181,11 @@ bool checkUserWebAuth(AsyncWebServerRequest * request) {
     isAuthenticated = true;
   }
   return isAuthenticated;
+}
+
+void printWebAdminArgs(AsyncWebServerRequest * request) {
+  int args = request->args();
+  for (int i = 0; i < args; i++) {
+    Serial.printf("ARG[%s]: %s\n", request->argName(i).c_str(), request->arg(i).c_str());
+  }
 }

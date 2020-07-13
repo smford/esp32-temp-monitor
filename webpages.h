@@ -13,7 +13,10 @@ const char index_html[] PROGMEM = R"rawliteral(
   <p>
   <button onclick="logoutButton()">Logout</button>
   <button onclick="rebootButton()">Reboot</button>
+  <button onclick="listFilesButton()">List Files</button>
   </p>
+  <p id="configstatus"></p>
+  <p id="details"></p>
 <script>
 function logoutButton() {
   var xhr = new XMLHttpRequest();
@@ -27,6 +30,28 @@ function rebootButton() {
   xhr.open("GET", "/reboot", true);
   xhr.send();
   window.open("/reboot","_self");
+}
+function listFilesButton() {
+  xmlhttp=new XMLHttpRequest();
+  xmlhttp.open("GET", "/listfiles", false);
+  xmlhttp.send();
+  document.getElementById("details").innerHTML = xmlhttp.responseText;
+}
+function downloadDeleteButton(filename, action) {
+  var urltocall = "/file?name=" + filename + "&action=" + action;
+  xmlhttp=new XMLHttpRequest();
+  if (action == "delete") {
+    xmlhttp.open("GET", urltocall, false);
+    xmlhttp.send();
+    document.getElementById("configstatus").innerHTML = xmlhttp.responseText;
+    xmlhttp.open("GET", "/listfiles", false);
+    xmlhttp.send();
+    document.getElementById("configdetails").innerHTML = xmlhttp.responseText;
+  }
+  if (action == "download") {
+    document.getElementById("configstatus").innerHTML = "";
+    window.open(urltocall,"_blank");
+  }
 }
 </script>
 </body>
