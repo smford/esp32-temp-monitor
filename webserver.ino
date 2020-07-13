@@ -59,14 +59,12 @@ void configureWebServer() {
       return request->requestAuthentication();
     }
 
-
     int headers = request->headers();
     int i;
     for (i = 0; i < headers; i++) {
       AsyncWebHeader* h = request->getHeader(i);
       Serial.printf("HEADER[%s]: %s\n", h->name().c_str(), h->value().c_str());
     }
-
 
     String logmessage = "Client:" + request->client()->remoteIP().toString() + + " " + request->url();
     Serial.println(logmessage);
@@ -75,6 +73,24 @@ void configureWebServer() {
     }
     request->send_P(200, "text/html", index_html, processor);
   });
+
+  server->on("/reboot", HTTP_GET, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+
+    if (checkUserWebAuth(request)) {
+      request->send(200, "text/html", reboot_html);
+      logmessage += " Auth: Success";
+      Serial.println(logmessage);
+      if (config.syslogenable) { syslog.log(logmessage); }
+      shouldReboot = true;
+    } else {
+      logmessage += " Auth: Failed";
+      Serial.println(logmessage);
+      if (config.syslogenable) { syslog.log(logmessage); }
+      return request->requestAuthentication();
+    }
+  });
+
 }
 
 void notFound(AsyncWebServerRequest *request) {
@@ -84,4 +100,19 @@ void notFound(AsyncWebServerRequest *request) {
     syslog.log(logmessage);
   }
   request->send(404, "text/plain", "Not found");
+}
+
+// used by server.on functions to discern whether a user has the correct httpapitoken OR is authenticated by username and password
+bool checkUserWebAuth(AsyncWebServerRequest * request) {
+  bool isAuthenticated = false;
+
+  if (request->hasParam("api") && (strcmp(request->getParam("api")->value().c_str(), config.httpapitoken.c_str()) == 0)) {
+    isAuthenticated = true;
+  }
+
+  if (request->authenticate(config.httpuser.c_str(), config.httppassword.c_str())) {
+    Serial.println("is authenticated via username and password");
+    isAuthenticated = true;
+  }
+  return isAuthenticated;
 }

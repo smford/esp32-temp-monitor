@@ -17,6 +17,7 @@ const String default_wifipassword = "xxx";
 const int default_relaypin = 26;
 const String default_httpuser = "admin";
 const String default_httppassword = "admin";
+const String default_httpapitoken = "xyz";
 const int default_webserverporthttp = 80;
 const int default_webserverporthttps = 443;
 const bool default_syslogenable = true;
@@ -32,6 +33,7 @@ struct Config {
   int relaypin;              // relay pin number
   String httpuser;           // username to access web admin
   String httppassword;       // password to access web admin
+  String httpapitoken;       // api token used to authenticate against the device
   int webserverporthttp;     // http port number for web admin
   int webserverporthttps;    // https port number for the web admin
   bool syslogenable;         // enable syslog
@@ -92,6 +94,7 @@ void setup() {
   config.relaypin = default_relaypin;
   config.httpuser = default_httpuser;
   config.httppassword = default_httppassword;
+  config.httpapitoken = default_httpapitoken;
   config.webserverporthttp = default_webserverporthttp;
   config.webserverporthttps = default_webserverporthttps;
   config.syslogenable = default_syslogenable;
@@ -143,8 +146,10 @@ void setup() {
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-
+  // reboot if we've told it to reboot
+  if (shouldReboot) {
+    rebootESP("Web Admin Initiated Reboot");
+  }
 }
 
 
