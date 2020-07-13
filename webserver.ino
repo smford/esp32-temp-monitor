@@ -40,6 +40,9 @@ void configureWebServer() {
   // if url isn't found
   server->onNotFound(notFound);
 
+  // run handleUpload function when any file is uploaded
+  server->onFileUpload(handleUpload);
+
   server->on("/logout", HTTP_GET, [](AsyncWebServerRequest * request) {
     request->requestAuthentication();
     request->send(401);
@@ -101,12 +104,16 @@ void configureWebServer() {
     if (checkUserWebAuth(request)) {
       logmessage += " Auth: Success";
       Serial.println(logmessage);
-      if (config.syslogenable) { syslog.log(logmessage); }
+      if (config.syslogenable) {
+        syslog.log(logmessage);
+      }
       request->send(200, "text/plain", listFiles(true));
     } else {
       logmessage += " Auth: Failed";
       Serial.println(logmessage);
-      if (config.syslogenable) { syslog.log(logmessage); }
+      if (config.syslogenable) {
+        syslog.log(logmessage);
+      }
       return request->requestAuthentication();
     }
   });
@@ -116,7 +123,9 @@ void configureWebServer() {
     if (checkUserWebAuth(request)) {
       logmessage += " Auth: Success";
       Serial.println(logmessage);
-      if (config.syslogenable) { syslog.log(logmessage); }
+      if (config.syslogenable) {
+        syslog.log(logmessage);
+      }
 
       printWebAdminArgs(request);
 
@@ -128,11 +137,15 @@ void configureWebServer() {
 
         if (!SPIFFS.exists(fileName)) {
           Serial.println(logmessage + " ERROR: file does not exist");
-          if (config.syslogenable) { syslog.log(logmessage + " ERROR: file does not exist"); }
+          if (config.syslogenable) {
+            syslog.log(logmessage + " ERROR: file does not exist");
+          }
           request->send(400, "text/plain", "ERROR: file does not exist");
         } else {
           Serial.println(logmessage + " file exists");
-          if (config.syslogenable) { syslog.log(logmessage + " file exists"); }
+          if (config.syslogenable) {
+            syslog.log(logmessage + " file exists");
+          }
           if (strcmp(fileAction, "download") == 0) {
             logmessage += " downloaded";
             request->send(SPIFFS, fileName, "application/octet-stream");
@@ -145,7 +158,9 @@ void configureWebServer() {
             request->send(400, "text/plain", "ERROR: invalid action param supplied");
           }
           Serial.println(logmessage);
-          if (config.syslogenable) { syslog.log(logmessage); }
+          if (config.syslogenable) {
+            syslog.log(logmessage);
+          }
         }
       } else {
         request->send(400, "text/plain", "ERROR: name and action params required");
@@ -153,7 +168,9 @@ void configureWebServer() {
     } else {
       logmessage += " Auth: Failed";
       Serial.println(logmessage);
-      if (config.syslogenable) { syslog.log(logmessage); }
+      if (config.syslogenable) {
+        syslog.log(logmessage);
+      }
       return request->requestAuthentication();
     }
   });
@@ -187,5 +204,50 @@ void printWebAdminArgs(AsyncWebServerRequest * request) {
   int args = request->args();
   for (int i = 0; i < args; i++) {
     Serial.printf("ARG[%s]: %s\n", request->argName(i).c_str(), request->arg(i).c_str());
+  }
+}
+
+// handles uploads to the filserver
+void handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+  // make sure authenticated before allowing upload
+  if (!request->authenticate(config.httpuser.c_str(), config.httppassword.c_str())) {
+    return request->requestAuthentication();
+  }
+
+  String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+  Serial.println(logmessage);
+  if (config.syslogenable) {
+    syslog.log(logmessage);
+  }
+
+  if (!index) {
+    logmessage = "Upload Start: " + String(filename);
+    // open the file on first call and store the file handle in the request object
+    request->_tempFile = SPIFFS.open("/" + filename, "w");
+    Serial.println(logmessage);
+    if (config.syslogenable) {
+      syslog.log(logmessage);
+    }
+  }
+
+  if (len) {
+    // stream the incoming chunk to the opened file
+    request->_tempFile.write(data, len);
+    logmessage = "Writing file: " + String(filename) + " index=" + String(index) + " len=" + String(len);
+    Serial.println(logmessage);
+    if (config.syslogenable) {
+      syslog.log(logmessage);
+    }
+  }
+
+  if (final) {
+    logmessage = "Upload Complete: " + String(filename) + ",size: " + String(index + len);
+    // close the file handle as the upload is now done
+    request->_tempFile.close();
+    Serial.println(logmessage);
+    if (config.syslogenable) {
+      syslog.log(logmessage);
+    }
+    request->redirect("/");
   }
 }
