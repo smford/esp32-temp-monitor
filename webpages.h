@@ -7,6 +7,8 @@ const char index_html[] PROGMEM = R"rawliteral(
 </head>
 <body>
   <p>Main page</p>
+  <p>Firmware: %FIRMWARE%</p>
+  <p>Free Storage: <span id="freespiffs">%FREESPIFFS%</span> | Used Storage: <span id="usedspiffs">%USEDSPIFFS%</span> | Total Storage: <span id="totalspiffs">%TOTALSPIFFS%</span></p>
   <p>ESP32 Temp: %TEMP%</p>
   <p><button onclick="logoutButton()">Logout</button></p>
 <script>

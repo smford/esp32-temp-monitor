@@ -5,6 +5,7 @@
 #include <Wire.h>
 #include <Syslog.h>
 #include <WiFiUdp.h>
+#include <SPIFFS.h>
 #include "webpages.h"
 
 #define FIRMWARE_VERSION "v0.0.1"
@@ -38,10 +39,14 @@ struct Config {
   int syslogport;            // sylog port number
 };
 
+// function defaults
+String listFiles(bool ishtml = false);
+
 // variables
-Config config;                       // configuration
-bool shouldReboot = false;           // schedule a reboot
-AsyncWebServer *server;              // initialise webserver
+const char *filename = "/config.txt"; // filename where configuration is stored
+Config config;                        // configuration
+bool shouldReboot = false;            // schedule a reboot
+AsyncWebServer *server;               // initialise webserver
 
 // internal ESP32 temp sensor
 #ifdef __cplusplus
@@ -65,6 +70,18 @@ void setup() {
   Serial.print("Firmware: "); Serial.println(FIRMWARE_VERSION);
 
   Serial.println("Booting ...");
+
+  Serial.println("Mounting SPIFFS ...");
+  if (!SPIFFS.begin(true)) {
+    Serial.println("ERROR: Cannot mount SPIFFS, Rebooting");
+    rebootESP("ERROR: Cannot mount SPIFFS, Rebooting");
+  }
+
+  Serial.print("SPIFFS Free: "); Serial.println(humanReadableSize((SPIFFS.totalBytes() - SPIFFS.usedBytes())));
+  Serial.print("SPIFFS Used: "); Serial.println(humanReadableSize(SPIFFS.usedBytes()));
+  Serial.print("SPIFFS Total: "); Serial.println(humanReadableSize(SPIFFS.totalBytes()));
+
+  Serial.println(listFiles());
 
   Serial.println("Loading Configuration ...");
 
@@ -171,4 +188,49 @@ String i2cScanner() {
 
 String getESPTemp() {
   return String((temprature_sens_read() - 32) / 1.8) + "C";
+}
+
+void rebootESP(String message) {
+  Serial.print("Rebooting ESP32: "); Serial.println(message);
+  if (config.syslogenable) { syslog.logf("Rebooting ESP32:%s", message); }
+  // wait 10 seconds to allow syslog to be sent
+  delay(10000);
+  ESP.restart();
+}
+
+// list all of the files, if ishtml=true, return html rather than simple text
+String listFiles(bool ishtml) {
+  String returnText = "";
+  Serial.println("Listing files stored on SPIFFS");
+  File root = SPIFFS.open("/");
+  File foundfile = root.openNextFile();
+  if (ishtml) {
+    returnText += "<table><tr><th align='left'>Name</th><th align='left'>Size</th><th></th><th></th></tr>";
+  }
+  while (foundfile) {
+    if (ishtml) {
+      returnText += "<tr align='left'><td>" + String(foundfile.name()) + "</td><td>" + humanReadableSize(foundfile.size()) + "</td>";
+      //"<td><a href='/file?name=" + String(foundfile.name()) + "&action=download'>Download</a></td><td><a href='/file?name=" + String(foundfile.name()) + "&action=delete'>Delete</a></td>";
+      returnText += "<td><button onclick=\"downloadDeleteButton(\'" + String(foundfile.name()) + "\', \'download\')\">Download</button>";
+      returnText += "<td><button onclick=\"downloadDeleteButton(\'" + String(foundfile.name()) + "\', \'delete\')\">Delete</button></tr>";
+    } else {
+      returnText += "File: " + String(foundfile.name()) + " Size: " + humanReadableSize(foundfile.size()) + "\n";
+    }
+    foundfile = root.openNextFile();
+  }
+  if (ishtml) {
+    returnText += "</table>";
+  }
+  root.close();
+  foundfile.close();
+  return returnText;
+}
+
+// Make size of files human readable
+// source: https://github.com/CelliesProjects/minimalUploadAuthESP32
+String humanReadableSize(const size_t bytes) {
+  if (bytes < 1024) return String(bytes) + " B";
+  else if (bytes < (1024 * 1024)) return String(bytes / 1024.0) + " KB";
+  else if (bytes < (1024 * 1024 * 1024)) return String(bytes / 1024.0 / 1024.0) + " MB";
+  else return String(bytes / 1024.0 / 1024.0 / 1024.0) + " GB";
 }

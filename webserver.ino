@@ -17,6 +17,21 @@ String processor(const String& var) {
     return getESPTemp();
   }
 
+  if (var == "FIRMWARE") {
+    return FIRMWARE_VERSION;
+  }
+
+  if (var == "FREESPIFFS") {
+    return humanReadableSize((SPIFFS.totalBytes() - SPIFFS.usedBytes()));
+  }
+
+  if (var == "USEDSPIFFS") {
+    return humanReadableSize(SPIFFS.usedBytes());
+  }
+
+  if (var == "TOTALSPIFFS") {
+    return humanReadableSize(SPIFFS.totalBytes());
+  }
 }
 
 void configureWebServer() {
@@ -33,7 +48,9 @@ void configureWebServer() {
   server->on("/logged-out", HTTP_GET, [](AsyncWebServerRequest * request) {
     String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
     Serial.println(logmessage);
-    if (config.syslogenable) { syslog.log(logmessage); }
+    if (config.syslogenable) {
+      syslog.log(logmessage);
+    }
     request->send_P(401, "text/html", logout_html, processor);
   });
 
@@ -53,7 +70,9 @@ void configureWebServer() {
 
     String logmessage = "Client:" + request->client()->remoteIP().toString() + + " " + request->url();
     Serial.println(logmessage);
-    if (config.syslogenable) { syslog.log(logmessage); }
+    if (config.syslogenable) {
+      syslog.log(logmessage);
+    }
     request->send_P(200, "text/html", index_html, processor);
   });
 }
@@ -61,6 +80,8 @@ void configureWebServer() {
 void notFound(AsyncWebServerRequest *request) {
   String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
   Serial.println(logmessage);
-  if (config.syslogenable) { syslog.log(logmessage); }
+  if (config.syslogenable) {
+    syslog.log(logmessage);
+  }
   request->send(404, "text/plain", "Not found");
 }
