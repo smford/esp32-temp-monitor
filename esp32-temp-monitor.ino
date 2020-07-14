@@ -23,6 +23,10 @@ const int default_webserverporthttps = 443;
 const bool default_syslogenable = true;
 const String default_syslogserver = "192.168.10.21";
 const int default_syslogport = 514;
+const bool default_telegrafenable = true;
+const String default_telegrafserver = "192.168.10.21";
+const int default_telegrafserverport = 8094;
+const int default_telegrafshiptime = 30;
 
 // configuration structure
 struct Config {
@@ -39,16 +43,22 @@ struct Config {
   bool syslogenable;         // enable syslog
   String syslogserver;       // hostname or ip of the syslog server
   int syslogport;            // sylog port number
+  bool telegrafenable;       // turns on or off shipping of metrics to telegraf
+  String telegrafserver;     // hostname or ip of telegraf server
+  int telegrafserverport;    // port number for telegraf
+  int telegrafshiptime;      // how often should we ship metrics to telegraf
 };
 
 // function defaults
 String listFiles(bool ishtml = false);
 
 // variables
-const char *filename = "/config.txt"; // filename where configuration is stored
-Config config;                        // configuration
-bool shouldReboot = false;            // schedule a reboot
-AsyncWebServer *server;               // initialise webserver
+const char *filename = "/config.txt";  // filename where configuration is stored
+Config config;                         // configuration
+bool shouldReboot = false;             // schedule a reboot
+AsyncWebServer *server;                // initialise webserver
+unsigned long telegrafLastRunTime = 0; // keeps track of the time when the last metrics were shipped for influxdb
+
 
 // internal ESP32 temp sensor
 #ifdef __cplusplus
@@ -100,6 +110,10 @@ void setup() {
   config.syslogenable = default_syslogenable;
   config.syslogserver = default_syslogserver;
   config.syslogport = default_syslogport;
+  config.telegrafenable = default_telegrafenable;
+  config.telegrafserver = default_telegrafserver;
+  config.telegrafserverport = default_telegrafserverport;
+  config.telegrafshiptime = default_telegrafshiptime;
 
   Serial.print("\nConnecting to Wifi: ");
   WiFi.begin(config.ssid.c_str(), config.wifipassword.c_str());
@@ -120,6 +134,13 @@ void setup() {
   Serial.print("        DNS 1: "); Serial.println(WiFi.dnsIP(0));
   Serial.print("        DNS 2: "); Serial.println(WiFi.dnsIP(1));
   Serial.print("        DNS 3: "); Serial.println(WiFi.dnsIP(2));
+  if (config.telegrafenable) {
+    Serial.println("     Telegraf Enabled: true");
+    Serial.print("      Telegraf Server: "); Serial.println(config.telegrafserver);
+    Serial.print("        Telegraf Port: "); Serial.println(config.telegrafserverport);
+    Serial.print("   Telegraf Ship Time: "); Serial.println(config.telegrafshiptime);
+  }
+
   Serial.println();
 
   if (config.syslogenable) {
@@ -149,6 +170,14 @@ void loop() {
   // reboot if we've told it to reboot
   if (shouldReboot) {
     rebootESP("Web Admin Initiated Reboot");
+  }
+
+  // do nothing and return if trying to ship metrics too fast
+  if ((millis() - telegrafLastRunTime) > (config.telegrafshiptime * 1000)) {
+    shipMetric("cputemp", getESPTemp());
+    shipMetric("wifisignal", String(WiFi.RSSI()));
+    shipMetric("telegrafdelay", String(millis() - telegrafLastRunTime));
+    telegrafLastRunTime = millis();
   }
 }
 
@@ -192,12 +221,14 @@ String i2cScanner() {
 }
 
 String getESPTemp() {
-  return String((temprature_sens_read() - 32) / 1.8) + "C";
+  return String((temprature_sens_read() - 32) / 1.8);
 }
 
 void rebootESP(String message) {
   Serial.print("Rebooting ESP32: "); Serial.println(message);
-  if (config.syslogenable) { syslog.logf("Rebooting ESP32:%s", message); }
+  if (config.syslogenable) {
+    syslog.logf("Rebooting ESP32:%s", message);
+  }
   // wait 10 seconds to allow syslog to be sent
   delay(10000);
   ESP.restart();
@@ -238,4 +269,12 @@ String humanReadableSize(const size_t bytes) {
   else if (bytes < (1024 * 1024)) return String(bytes / 1024.0) + " KB";
   else if (bytes < (1024 * 1024 * 1024)) return String(bytes / 1024.0 / 1024.0) + " MB";
   else return String(bytes / 1024.0 / 1024.0 / 1024.0) + " GB";
+}
+
+void shipMetric(String metric, String value) {
+  String line = config.appname + "-" + metric + " value=" + value;
+  Serial.print("Shipping: "); Serial.println(line);
+  udpClient.beginPacket(config.telegrafserver.c_str(), config.telegrafserverport);
+  udpClient.print(line);
+  udpClient.endPacket();
 }

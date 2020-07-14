@@ -9,7 +9,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   <p>Main page</p>
   <p>Firmware: %FIRMWARE%</p>
   <p>Free Storage: <span id="freespiffs">%FREESPIFFS%</span> | Used Storage: <span id="usedspiffs">%USEDSPIFFS%</span> | Total Storage: <span id="totalspiffs">%TOTALSPIFFS%</span></p>
-  <p>ESP32 Temp: %TEMP%</p>
+  <p>ESP32 Temp: %TEMP% C</p>
   <p>
   <button onclick="logoutButton()">Logout</button>
   <button onclick="rebootButton()">Reboot</button>
