@@ -1,5 +1,4 @@
 // parses and processes webpages
-// if the webpage has %SOMETHING% or %SOMETHINGELSE% it will replace those strings with the ones defined
 String processor(const String& var) {
   if (var == "SOMETHING") {
     String returnText = "";
@@ -51,9 +50,7 @@ void configureWebServer() {
   server->on("/logged-out", HTTP_GET, [](AsyncWebServerRequest * request) {
     String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
     Serial.println(logmessage);
-    if (config.syslogenable) {
-      syslog.log(logmessage);
-    }
+    syslogSend(logmessage);
     request->send_P(401, "text/html", logout_html, processor);
   });
 
@@ -71,9 +68,7 @@ void configureWebServer() {
 
     String logmessage = "Client:" + request->client()->remoteIP().toString() + + " " + request->url();
     Serial.println(logmessage);
-    if (config.syslogenable) {
-      syslog.log(logmessage);
-    }
+    syslogSend(logmessage);
     request->send_P(200, "text/html", index_html, processor);
   });
 
@@ -84,16 +79,12 @@ void configureWebServer() {
       request->send(200, "text/html", reboot_html);
       logmessage += " Auth: Success";
       Serial.println(logmessage);
-      if (config.syslogenable) {
-        syslog.log(logmessage);
-      }
+      syslogSend(logmessage);
       shouldReboot = true;
     } else {
       logmessage += " Auth: Failed";
       Serial.println(logmessage);
-      if (config.syslogenable) {
-        syslog.log(logmessage);
-      }
+      syslogSend(logmessage);
       return request->requestAuthentication();
     }
   });
@@ -104,16 +95,12 @@ void configureWebServer() {
     if (checkUserWebAuth(request)) {
       logmessage += " Auth: Success";
       Serial.println(logmessage);
-      if (config.syslogenable) {
-        syslog.log(logmessage);
-      }
+      syslogSend(logmessage);
       request->send(200, "text/plain", listFiles(true));
     } else {
       logmessage += " Auth: Failed";
       Serial.println(logmessage);
-      if (config.syslogenable) {
-        syslog.log(logmessage);
-      }
+      syslogSend(logmessage);
       return request->requestAuthentication();
     }
   });
@@ -123,9 +110,7 @@ void configureWebServer() {
     if (checkUserWebAuth(request)) {
       logmessage += " Auth: Success";
       Serial.println(logmessage);
-      if (config.syslogenable) {
-        syslog.log(logmessage);
-      }
+      syslogSend(logmessage);
 
       printWebAdminArgs(request);
 
@@ -137,15 +122,11 @@ void configureWebServer() {
 
         if (!SPIFFS.exists(fileName)) {
           Serial.println(logmessage + " ERROR: file does not exist");
-          if (config.syslogenable) {
-            syslog.log(logmessage + " ERROR: file does not exist");
-          }
+          syslogSend(logmessage + " ERROR: file does not exist");
           request->send(400, "text/plain", "ERROR: file does not exist");
         } else {
           Serial.println(logmessage + " file exists");
-          if (config.syslogenable) {
-            syslog.log(logmessage + " file exists");
-          }
+          syslogSend(logmessage + " file exists");
           if (strcmp(fileAction, "download") == 0) {
             logmessage += " downloaded";
             request->send(SPIFFS, fileName, "application/octet-stream");
@@ -158,9 +139,7 @@ void configureWebServer() {
             request->send(400, "text/plain", "ERROR: invalid action param supplied");
           }
           Serial.println(logmessage);
-          if (config.syslogenable) {
-            syslog.log(logmessage);
-          }
+          syslogSend(logmessage);
         }
       } else {
         request->send(400, "text/plain", "ERROR: name and action params required");
@@ -168,9 +147,7 @@ void configureWebServer() {
     } else {
       logmessage += " Auth: Failed";
       Serial.println(logmessage);
-      if (config.syslogenable) {
-        syslog.log(logmessage);
-      }
+      syslogSend(logmessage);
       return request->requestAuthentication();
     }
   });
@@ -179,9 +156,7 @@ void configureWebServer() {
 void notFound(AsyncWebServerRequest *request) {
   String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
   Serial.println(logmessage);
-  if (config.syslogenable) {
-    syslog.log(logmessage);
-  }
+  syslogSend(logmessage);
   request->send(404, "text/plain", "Not found");
 }
 
@@ -216,18 +191,14 @@ void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
 
   String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
   Serial.println(logmessage);
-  if (config.syslogenable) {
-    syslog.log(logmessage);
-  }
+  syslogSend(logmessage);
 
   if (!index) {
     logmessage = "Upload Start: " + String(filename);
     // open the file on first call and store the file handle in the request object
     request->_tempFile = SPIFFS.open("/" + filename, "w");
     Serial.println(logmessage);
-    if (config.syslogenable) {
-      syslog.log(logmessage);
-    }
+    syslogSend(logmessage);
   }
 
   if (len) {
@@ -235,9 +206,7 @@ void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
     request->_tempFile.write(data, len);
     logmessage = "Writing file: " + String(filename) + " index=" + String(index) + " len=" + String(len);
     Serial.println(logmessage);
-    if (config.syslogenable) {
-      syslog.log(logmessage);
-    }
+    syslogSend(logmessage);
   }
 
   if (final) {
@@ -245,9 +214,7 @@ void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
     // close the file handle as the upload is now done
     request->_tempFile.close();
     Serial.println(logmessage);
-    if (config.syslogenable) {
-      syslog.log(logmessage);
-    }
+    syslogSend(logmessage);
     request->redirect("/");
   }
 }

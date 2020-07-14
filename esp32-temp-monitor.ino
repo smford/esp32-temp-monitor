@@ -186,9 +186,7 @@ String i2cScanner() {
   byte error, address;
   String returnText = "[";
   Serial.println("Scanning I2C");
-  if (config.syslogenable) {
-    syslog.log("Scanning I2C");
-  }
+  syslogSend("Scanning I2C");
   for (address = 1; address < 127; address++ ) {
     Wire.beginTransmission(address);
     error = Wire.endTransmission();
@@ -226,9 +224,7 @@ String getESPTemp() {
 
 void rebootESP(String message) {
   Serial.print("Rebooting ESP32: "); Serial.println(message);
-  if (config.syslogenable) {
-    syslog.logf("Rebooting ESP32:%s", message);
-  }
+  syslogSend("Rebooting ESP32: " + message);
   // wait 10 seconds to allow syslog to be sent
   delay(10000);
   ESP.restart();
@@ -277,4 +273,10 @@ void shipMetric(String metric, String value) {
   udpClient.beginPacket(config.telegrafserver.c_str(), config.telegrafserverport);
   udpClient.print(line);
   udpClient.endPacket();
+}
+
+void syslogSend(String message) {
+  if (config.syslogenable) {
+    syslog.log(message);
+  }
 }
