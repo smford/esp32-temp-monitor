@@ -27,6 +27,7 @@ const bool default_telegrafenable = true;
 const String default_telegrafserver = "192.168.10.21";
 const int default_telegrafserverport = 8094;
 const int default_telegrafshiptime = 30;
+const int default_tempchecktime = 10;
 
 // configuration structure
 struct Config {
@@ -46,19 +47,20 @@ struct Config {
   bool telegrafenable;       // turns on or off shipping of metrics to telegraf
   String telegrafserver;     // hostname or ip of telegraf server
   int telegrafserverport;    // port number for telegraf
-  int telegrafshiptime;      // how often should we ship metrics to telegraf
+  int telegrafshiptime;      // how often in seconds we should ship metrics to telegraf
+  int tempchecktime;         // how often in seconds to check temperature
 };
 
 // function defaults
 String listFiles(bool ishtml = false);
 
 // variables
-const char *filename = "/config.txt";  // filename where configuration is stored
-Config config;                         // configuration
-bool shouldReboot = false;             // schedule a reboot
-AsyncWebServer *server;                // initialise webserver
-unsigned long telegrafLastRunTime = 0; // keeps track of the time when the last metrics were shipped for influxdb
-
+const char *filename = "/config.txt";   // filename where configuration is stored
+Config config;                          // configuration
+bool shouldReboot = false;              // schedule a reboot
+AsyncWebServer *server;                 // initialise webserver
+unsigned long telegrafLastRunTime = 0;  // keeps track of the time when the last metrics were shipped for influxdb
+unsigned long tempCheckLastRunTime = 0; // keeps track of the time when the last temp check was run
 
 // internal ESP32 temp sensor
 #ifdef __cplusplus
@@ -76,12 +78,17 @@ WiFiUDP udpClient;
 // Syslog
 Syslog syslog(udpClient, SYSLOG_PROTO_IETF);
 
+// LCD
+LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
+
 void setup() {
   Serial.begin(115200);
-
-  Serial.print("Firmware: "); Serial.println(FIRMWARE_VERSION);
+  setupLCD();
 
   Serial.println("Booting ...");
+  printLCD("Booting ...", "");
+
+  Serial.print("Firmware: "); Serial.println(FIRMWARE_VERSION);
 
   Serial.println("Mounting SPIFFS ...");
   if (!SPIFFS.begin(true)) {
@@ -114,6 +121,7 @@ void setup() {
   config.telegrafserver = default_telegrafserver;
   config.telegrafserverport = default_telegrafserverport;
   config.telegrafshiptime = default_telegrafshiptime;
+  config.tempchecktime = default_tempchecktime;
 
   Serial.print("\nConnecting to Wifi: ");
   WiFi.begin(config.ssid.c_str(), config.wifipassword.c_str());
@@ -164,6 +172,8 @@ void setup() {
   Wire.begin();
   Serial.println(i2cScanner());
 
+  printLCD("Ready", "Getting Temp");
+
 }
 
 void loop() {
@@ -179,6 +189,13 @@ void loop() {
     shipMetric("telegrafdelay", String(millis() - telegrafLastRunTime));
     telegrafLastRunTime = millis();
   }
+
+  if ((millis() - tempCheckLastRunTime) > (config.tempchecktime * 1000)) {
+    printLCD("CPUTemp", getESPTemp() + " C");
+    //printLCD(getESPTemp() + " C", "");
+    tempCheckLastRunTime = millis();
+  }
+
 }
 
 
@@ -279,4 +296,17 @@ void syslogSend(String message) {
   if (config.syslogenable) {
     syslog.log(message);
   }
+}
+
+void setupLCD() {
+  lcd.begin(16, 2);
+  lcd.home();
+}
+
+void printLCD(String line1, String line2) {
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print(line1);
+  lcd.setCursor (0, 1);
+  lcd.print(line2);
 }
