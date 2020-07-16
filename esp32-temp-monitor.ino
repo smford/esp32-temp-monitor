@@ -6,6 +6,8 @@
 #include <Syslog.h>
 #include <WiFiUdp.h>
 #include <SPIFFS.h>
+#include <LiquidCrystal_I2C.h>
+#include <ArduinoJson.h>
 #include "webpages.h"
 
 #define FIRMWARE_VERSION "v0.0.1"
@@ -309,4 +311,24 @@ void printLCD(String line1, String line2) {
   lcd.print(line1);
   lcd.setCursor (0, 1);
   lcd.print(line2);
+}
+
+String getConfig() {
+  StaticJsonDocument<2200> configDoc;
+  configDoc["Hostname"] = config.hostname;
+  configDoc["AppName"] = config.appname;
+  configDoc["SSID"] = config.ssid;
+  configDoc["WifiPassword"] = config.wifipassword;
+  configDoc["SyslogEnable"] = config.syslogenable;
+  configDoc["SyslogServer"] = config.syslogserver;
+  configDoc["SyslogPort"] = config.syslogport;
+  configDoc["WebServerPortHTTP"] = config.webserverporthttp;
+  configDoc["WebServerPortHTTPS"] = config.webserverporthttps;
+  configDoc["TelegrafEnable"] = config.telegrafenable;
+  configDoc["TelegrafServer"] = config.telegrafserver;
+  configDoc["TelegrafServerPort"] = config.telegrafserverport;
+  configDoc["TelegrafShipTime"] = config.telegrafshiptime;
+  String fullConfig = "";
+  serializeJson(configDoc, fullConfig);
+  return fullConfig;
 }

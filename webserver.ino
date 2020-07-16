@@ -1,15 +1,7 @@
 // parses and processes webpages
 String processor(const String& var) {
-  if (var == "SOMETHING") {
-    String returnText = "";
-    returnText = "something";
-    return returnText;
-  }
-
-  if (var == "SOMETHINGELSE") {
-    String returnText = "";
-    returnText = "something else";
-    return returnText;
+  if (var == "HOSTNAME") {
+    return config.hostname;
   }
 
   if (var == "TEMP") {
@@ -81,6 +73,66 @@ void configureWebServer() {
       Serial.println(logmessage);
       syslogSend(logmessage);
       shouldReboot = true;
+    } else {
+      logmessage += " Auth: Failed";
+      Serial.println(logmessage);
+      syslogSend(logmessage);
+      return request->requestAuthentication();
+    }
+  });
+
+  server->on("/set1", HTTP_GET, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+
+    if (checkUserWebAuth(request)) {
+      if (request->hasParam("name") && request->hasParam("value")) {
+        const char *Name = request->getParam("name")->value().c_str();
+        const char *Value = request->getParam("value")->value().c_str();
+        if (setValue(Name, Value)) {
+          request->send(200, "text/plain", "Set: " + String(Name) + "=" + String(Value));
+        } else {
+          request->send(200, "text/plain", "Failed Set: " + String(Name) + "=" + String(Value));
+        }
+      }
+    } else {
+      logmessage += " Auth: Failed";
+      Serial.println(logmessage);
+      syslogSend(logmessage);
+      return request->requestAuthentication();
+    }
+  });
+
+  server->on("/fullconfig", HTTP_GET, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    if (checkUserWebAuth(request)) {
+      logmessage += " Auth: Success";
+      Serial.println(logmessage);
+      syslog.log(logmessage);
+      request->send(200, "application/json", getConfig());
+    } else {
+      logmessage += " Auth: Failed";
+      Serial.println(logmessage);
+      syslog.log(logmessage);
+      return request->requestAuthentication();
+    }
+  });
+
+  server->on("/set", HTTP_GET, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+
+    if (checkUserWebAuth(request)) {
+      if (request->hasParam("hostname")) {
+        config.hostname = request->getParam("hostname")->value();
+        request->send(200, "text/plain", "Set: hostname=" + config.hostname);
+
+        /*if (setValue(Name, Value)) {
+          request->send(200, "text/plain", "Set: " + String(Name) + "=" + String(Value));
+        } else {
+          request->send(200, "text/plain", "Failed Set: " + String(Name) + "=" + String(Value));
+        }*/
+      } else {
+        request->send(200, "text/plain", "no hostname supplied");
+      }
     } else {
       logmessage += " Auth: Failed";
       Serial.println(logmessage);
