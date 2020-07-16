@@ -9,27 +9,9 @@
 #include <LiquidCrystal_I2C.h>
 #include <ArduinoJson.h>
 #include "webpages.h"
+#include "defaults.h"
 
 #define FIRMWARE_VERSION "v0.0.1"
-
-const String default_hostname = "tempmon.home.narco.tk";
-const String default_appname = "tempmon";
-const String default_ssid = "xxx";
-const String default_wifipassword = "xxx";
-const int default_relaypin = 26;
-const String default_httpuser = "admin";
-const String default_httppassword = "admin";
-const String default_httpapitoken = "xyz";
-const int default_webserverporthttp = 80;
-const int default_webserverporthttps = 443;
-const bool default_syslogenable = true;
-const String default_syslogserver = "192.168.10.21";
-const int default_syslogport = 514;
-const bool default_telegrafenable = true;
-const String default_telegrafserver = "192.168.10.21";
-const int default_telegrafserverport = 8094;
-const int default_telegrafshiptime = 30;
-const int default_tempchecktime = 10;
 
 // configuration structure
 struct Config {
@@ -37,7 +19,6 @@ struct Config {
   String appname;            // application name
   String ssid;               // wifi ssid
   String wifipassword;       // wifi password
-  int relaypin;              // relay pin number
   String httpuser;           // username to access web admin
   String httppassword;       // password to access web admin
   String httpapitoken;       // api token used to authenticate against the device
@@ -104,26 +85,8 @@ void setup() {
 
   Serial.println(listFiles());
 
-  Serial.println("Loading Configuration ...");
-
-  config.hostname = default_hostname;
-  config.appname = default_appname;
-  config.ssid = default_ssid;
-  config.wifipassword = default_wifipassword;
-  config.relaypin = default_relaypin;
-  config.httpuser = default_httpuser;
-  config.httppassword = default_httppassword;
-  config.httpapitoken = default_httpapitoken;
-  config.webserverporthttp = default_webserverporthttp;
-  config.webserverporthttps = default_webserverporthttps;
-  config.syslogenable = default_syslogenable;
-  config.syslogserver = default_syslogserver;
-  config.syslogport = default_syslogport;
-  config.telegrafenable = default_telegrafenable;
-  config.telegrafserver = default_telegrafserver;
-  config.telegrafserverport = default_telegrafserverport;
-  config.telegrafshiptime = default_telegrafshiptime;
-  config.tempchecktime = default_tempchecktime;
+  loadConfiguration(filename, config);
+  printConfig();
 
   Serial.print("\nConnecting to Wifi: ");
   WiFi.begin(config.ssid.c_str(), config.wifipassword.c_str());
@@ -144,11 +107,16 @@ void setup() {
   Serial.print("        DNS 1: "); Serial.println(WiFi.dnsIP(0));
   Serial.print("        DNS 2: "); Serial.println(WiFi.dnsIP(1));
   Serial.print("        DNS 3: "); Serial.println(WiFi.dnsIP(2));
+  if (config.syslogenable) {
+    Serial.println("Syslog Enabled: true");
+    Serial.print(" Syslog Server: "); Serial.println(config.syslogserver);
+    Serial.print("   Syslog Port: "); Serial.println(config.syslogport);
+  }
   if (config.telegrafenable) {
-    Serial.println("     Telegraf Enabled: true");
-    Serial.print("      Telegraf Server: "); Serial.println(config.telegrafserver);
-    Serial.print("        Telegraf Port: "); Serial.println(config.telegrafserverport);
-    Serial.print("   Telegraf Ship Time: "); Serial.println(config.telegrafshiptime);
+    Serial.println("  Telegraf Enabled: true");
+    Serial.print("   Telegraf Server: "); Serial.println(config.telegrafserver);
+    Serial.print("     Telegraf Port: "); Serial.println(config.telegrafserverport);
+    Serial.print("Telegraf Ship Time: "); Serial.println(config.telegrafshiptime);
   }
 
   Serial.println();
@@ -319,11 +287,14 @@ String getConfig() {
   configDoc["AppName"] = config.appname;
   configDoc["SSID"] = config.ssid;
   configDoc["WifiPassword"] = config.wifipassword;
+  configDoc["HTTPUser"] = config.httpuser;
+  configDoc["HTTPPassword"] = config.httppassword;
+  configDoc["HTTPAPIToken"] = config.httpapitoken;
+  configDoc["WebServerPortHTTP"] = config.webserverporthttp;
+  configDoc["WebServerPortHTTPS"] = config.webserverporthttps;
   configDoc["SyslogEnable"] = config.syslogenable;
   configDoc["SyslogServer"] = config.syslogserver;
   configDoc["SyslogPort"] = config.syslogport;
-  configDoc["WebServerPortHTTP"] = config.webserverporthttp;
-  configDoc["WebServerPortHTTPS"] = config.webserverporthttps;
   configDoc["TelegrafEnable"] = config.telegrafenable;
   configDoc["TelegrafServer"] = config.telegrafserver;
   configDoc["TelegrafServerPort"] = config.telegrafserverport;

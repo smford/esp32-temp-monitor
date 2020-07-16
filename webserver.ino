@@ -133,15 +133,23 @@ void configureWebServer() {
         Serial.println("------");
       }
 
+      bool initiatesave = false;
+
       if (request->hasParam("hostname")) {
         config.hostname = request->getParam("hostname")->value();
+        initiatesave = true;
         request->send(200, "text/plain", "Set: hostname=" + config.hostname);
       } else if (request->hasParam("appname")) {
         config.appname = request->getParam("appname")->value();
+        initiatesave = true;
         request->send(200, "text/plain", "Set: appname=" + config.appname);
       } else {
         Serial.println("no matching params supplied");
         request->send(200, "text/plain", "no setting supplied");
+      }
+      if (initiatesave) {
+        Serial.println("Changed configuration " + String(filename));
+        saveConfiguration(filename, config);
       }
     } else {
       logmessage += " Auth: Failed";
