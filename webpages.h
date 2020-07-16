@@ -31,9 +31,13 @@ function displayConfig() {
   xmlhttp.open("GET", "/fullconfig", false);
   xmlhttp.send();
   var mydata = JSON.parse(xmlhttp.responseText);
-  var displaydata = "<table><tr><th align='left'>Setting</th><th align='left'>Value</th></tr>";
+  var displaydata = "<table><tr><th align='left'>Setting</th><th align='left'>Current</th><th align='left'>New</th></tr>";
   for (var key of Object.keys(mydata)) {
-    displaydata = displaydata + "<tr><td align='left'>" + key + "</td><td align='left'>" + mydata[key] + "</td></tr>";
+    if (key.toLowerCase().includes("password")) {
+      displaydata = displaydata + "<tr><td align='left'>" + key + "</td><td align='left'>" + "********" + "</td><td align='left'><form action='/set'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
+    } else {
+      displaydata = displaydata + "<tr><td align='left'>" + key + "</td><td align='left'>" + mydata[key] + "</td><td align='left'><form action='/set'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
+    }
   }
   displaydata = displaydata + "</table>";
   document.getElementById("details").innerHTML = displaydata;
@@ -45,7 +49,7 @@ function logoutButton() {
   setTimeout(function(){ window.open("/logged-out","_self"); }, 1000);
 }
 function rebootButton() {
-  document.getElementById("statusdetails").innerHTML = "Invoking Reboot ...";
+  document.getElementById("status").innerHTML = "Invoking Reboot ...";
   var xhr = new XMLHttpRequest();
   xhr.open("GET", "/reboot", true);
   xhr.send();

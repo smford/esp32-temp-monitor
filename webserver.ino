@@ -121,17 +121,27 @@ void configureWebServer() {
     String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
 
     if (checkUserWebAuth(request)) {
+
+      int paramsNr = request->params();
+      Serial.println(paramsNr);
+      for (int i = 0; i < paramsNr; i++) {
+        AsyncWebParameter* p = request->getParam(i);
+        Serial.print("Param name: ");
+        Serial.println(p->name());
+        Serial.print("Param value: ");
+        Serial.println(p->value());
+        Serial.println("------");
+      }
+
       if (request->hasParam("hostname")) {
         config.hostname = request->getParam("hostname")->value();
         request->send(200, "text/plain", "Set: hostname=" + config.hostname);
-
-        /*if (setValue(Name, Value)) {
-          request->send(200, "text/plain", "Set: " + String(Name) + "=" + String(Value));
-        } else {
-          request->send(200, "text/plain", "Failed Set: " + String(Name) + "=" + String(Value));
-        }*/
+      } else if (request->hasParam("appname")) {
+        config.appname = request->getParam("appname")->value();
+        request->send(200, "text/plain", "Set: appname=" + config.appname);
       } else {
-        request->send(200, "text/plain", "no hostname supplied");
+        Serial.println("no matching params supplied");
+        request->send(200, "text/plain", "no setting supplied");
       }
     } else {
       logmessage += " Auth: Failed";
@@ -143,7 +153,7 @@ void configureWebServer() {
 
   server->on("/listfiles", HTTP_GET, [](AsyncWebServerRequest * request)
   {
-    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    String logmessage = "Client: " + request->client()->remoteIP().toString() + " " + request->url();
     if (checkUserWebAuth(request)) {
       logmessage += " Auth: Success";
       Serial.println(logmessage);
@@ -158,7 +168,7 @@ void configureWebServer() {
   });
 
   server->on("/file", HTTP_GET, [](AsyncWebServerRequest * request) {
-    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    String logmessage = "Client: " + request->client()->remoteIP().toString() + " " + request->url();
     if (checkUserWebAuth(request)) {
       logmessage += " Auth: Success";
       Serial.println(logmessage);
@@ -170,12 +180,12 @@ void configureWebServer() {
         const char *fileName = request->getParam("name")->value().c_str();
         const char *fileAction = request->getParam("action")->value().c_str();
 
-        logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url() + "?name=" + String(fileName) + "&action=" + String(fileAction);
+        logmessage = "Client: " + request->client()->remoteIP().toString() + " " + request->url() + " ?name=" + String(fileName) + "&action=" + String(fileAction);
 
         if (!SPIFFS.exists(fileName)) {
-          Serial.println(logmessage + " ERROR: file does not exist");
-          syslogSend(logmessage + " ERROR: file does not exist");
-          request->send(400, "text/plain", "ERROR: file does not exist");
+          Serial.println(logmessage + " ERROR : file does not exist");
+          syslogSend(logmessage + " ERROR : file does not exist");
+          request->send(400, "text/plain", "ERROR : file does not exist");
         } else {
           Serial.println(logmessage + " file exists");
           syslogSend(logmessage + " file exists");
@@ -185,19 +195,19 @@ void configureWebServer() {
           } else if (strcmp(fileAction, "delete") == 0) {
             logmessage += " deleted";
             SPIFFS.remove(fileName);
-            request->send(200, "text/plain", "Deleted File: " + String(fileName));
+            request->send(200, "text/plain", "Deleted File : " + String(fileName));
           } else {
-            logmessage += " ERROR: invalid action param supplied";
-            request->send(400, "text/plain", "ERROR: invalid action param supplied");
+            logmessage += " ERROR : invalid action param supplied";
+            request->send(400, "text/plain", "ERROR : invalid action param supplied");
           }
           Serial.println(logmessage);
           syslogSend(logmessage);
         }
       } else {
-        request->send(400, "text/plain", "ERROR: name and action params required");
+        request->send(400, "text/plain", "ERROR : name and action params required");
       }
     } else {
-      logmessage += " Auth: Failed";
+      logmessage += " Auth : Failed";
       Serial.println(logmessage);
       syslogSend(logmessage);
       return request->requestAuthentication();
@@ -206,7 +216,7 @@ void configureWebServer() {
 }
 
 void notFound(AsyncWebServerRequest *request) {
-  String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+  String logmessage = "Client : " + request->client()->remoteIP().toString() + " " + request->url();
   Serial.println(logmessage);
   syslogSend(logmessage);
   request->send(404, "text/plain", "Not found");
@@ -230,7 +240,7 @@ bool checkUserWebAuth(AsyncWebServerRequest * request) {
 void printWebAdminArgs(AsyncWebServerRequest * request) {
   int args = request->args();
   for (int i = 0; i < args; i++) {
-    Serial.printf("ARG[%s]: %s\n", request->argName(i).c_str(), request->arg(i).c_str());
+    Serial.printf("ARG[ % s] : % s\n", request->argName(i).c_str(), request->arg(i).c_str());
   }
 }
 
@@ -241,12 +251,12 @@ void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
     return request->requestAuthentication();
   }
 
-  String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+  String logmessage = "Client : " + request->client()->remoteIP().toString() + " " + request->url();
   Serial.println(logmessage);
   syslogSend(logmessage);
 
   if (!index) {
-    logmessage = "Upload Start: " + String(filename);
+    logmessage = "Upload Start : " + String(filename);
     // open the file on first call and store the file handle in the request object
     request->_tempFile = SPIFFS.open("/" + filename, "w");
     Serial.println(logmessage);
@@ -256,17 +266,26 @@ void handleUpload(AsyncWebServerRequest *request, String filename, size_t index,
   if (len) {
     // stream the incoming chunk to the opened file
     request->_tempFile.write(data, len);
-    logmessage = "Writing file: " + String(filename) + " index=" + String(index) + " len=" + String(len);
+    logmessage = "Writing file : " + String(filename) + " index=" + String(index) + " len=" + String(len);
     Serial.println(logmessage);
     syslogSend(logmessage);
   }
 
   if (final) {
-    logmessage = "Upload Complete: " + String(filename) + ",size: " + String(index + len);
+    logmessage = "Upload Complete : " + String(filename) + " size: " + String(index + len);
     // close the file handle as the upload is now done
     request->_tempFile.close();
     Serial.println(logmessage);
     syslogSend(logmessage);
     request->redirect("/");
   }
+}
+
+bool setValue(const char *Name, const char *Value) {
+  if (strcmp(Name, "hostname") == 0) {
+    Serial.printf("Name = % s equals hostname", Name);
+  } else {
+    Serial.printf("Name = % s does not equal hostname", Name);
+  }
+
 }
