@@ -304,6 +304,18 @@ String getConfig() {
   return fullConfig;
 }
 
+String shortStatus() {
+  StaticJsonDocument<200> shortStatusDoc;
+  shortStatusDoc["Hostname"] = config.hostname;
+  shortStatusDoc["FreeSPIFFS"] = humanReadableSize((SPIFFS.totalBytes() - SPIFFS.usedBytes()));
+  shortStatusDoc["UsedSPIFFS"] = humanReadableSize(SPIFFS.usedBytes());
+  shortStatusDoc["TotalSPIFFS"] = humanReadableSize(SPIFFS.totalBytes());
+  shortStatusDoc["CPUTemp"] = getESPTemp();
+  String shortStatus = "";
+  serializeJson(shortStatusDoc, shortStatus);
+  return shortStatus;
+}
+
 bool checkSetting(const char *Name) {
   int arraySize = sizeof(validConfSettings) / sizeof(validConfSettings[0]);
   for (int i = 0; i < arraySize; i++) {

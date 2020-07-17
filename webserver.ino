@@ -81,6 +81,14 @@ void configureWebServer() {
     }
   });
 
+  server->on("/shortstatus", HTTP_GET, [](AsyncWebServerRequest * request) {
+    if (checkUserWebAuth(request)) {
+      request->send(200, "application/json", shortStatus());
+    } else {
+      return request->requestAuthentication();
+    }
+  });
+
   server->on("/set", HTTP_POST, [](AsyncWebServerRequest * request) {
     String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
 

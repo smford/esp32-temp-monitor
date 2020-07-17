@@ -6,10 +6,15 @@ const char index_html[] PROGMEM = R"rawliteral(
   <meta charset="UTF-8">
 </head>
 <body>
-  <p>%HOSTNAME%</p>
-  <p>Firmware: %FIRMWARE%</p>
-  <p>Free Storage: <span id="freespiffs">%FREESPIFFS%</span> | Used Storage: <span id="usedspiffs">%USEDSPIFFS%</span> | Total Storage: <span id="totalspiffs">%TOTALSPIFFS%</span></p>
-  <p>ESP32 Temp: %TEMP% C</p>
+  <p>
+  <table>
+  <tr><td><span id="hostname">%HOSTNAME%</span></td></tr>
+  <tr><td>Firmware: %FIRMWARE%</td></tr>
+  <tr><td>Free Storage: <span id="freespiffs">%FREESPIFFS%</span> | Used Storage: <span id="usedspiffs">%USEDSPIFFS%</span> | Total Storage: <span id="totalspiffs">%TOTALSPIFFS%</span></td></tr>
+  <tr><td>ESP32 Temp: <span id="cputemp">%TEMP%</span> C</td></tr>
+  <tr><td><span id="status"> </span></td></tr>
+  </table>
+  </p>
   <p>
   <button onclick="logoutButton()">Logout</button>
   <button onclick="rebootButton()">Reboot</button>
@@ -17,10 +22,20 @@ const char index_html[] PROGMEM = R"rawliteral(
   <button onclick="showUploadButtonFancy()">Upload File</button>
   <button onclick="displayEditConfig()">Display/Edit Config</button>
   </p>
-  <p id="status"></p>
   <p id="detailsheader"></p>
   <p id="details"></p>
 <script>
+function updateHeader() {
+  xmlhttp=new XMLHttpRequest();
+  xmlhttp.open("GET", "/shortstatus", false);
+  xmlhttp.send();
+  var mydata = JSON.parse(xmlhttp.responseText);
+  document.getElementById("hostname").innerHTML = mydata["Hostname"];
+  document.getElementById("freespiffs").innerHTML = mydata["FreeSPIFFS"];
+  document.getElementById("usedspiffs").innerHTML = mydata["UsedSPIFFS"];
+  document.getElementById("totalspiffs").innerHTML = mydata["TotalSPIFFS"];
+  document.getElementById("cputemp").innerHTML = mydata["CPUTemp"];
+}
 function submitForm(oFormElement) {
   var xhr = new XMLHttpRequest();
   xhr.onload = function() {
@@ -29,6 +44,9 @@ function submitForm(oFormElement) {
   }
   xhr.open(oFormElement.method, oFormElement.getAttribute("action"));
   xhr.send(new FormData(oFormElement));
+  setTimeout(function(){
+    updateHeader();
+  }, 2000);
   return false;
 }
 function displayEditConfig() {
@@ -78,6 +96,7 @@ function downloadDeleteButton(filename, action) {
     xmlhttp.open("GET", "/listfiles", false);
     xmlhttp.send();
     document.getElementById("details").innerHTML = xmlhttp.responseText;
+    updateHeader();
   }
   if (action == "download") {
     document.getElementById("status").innerHTML = "";
@@ -133,12 +152,13 @@ function completeHandler(event) {
   document.getElementById("status").innerHTML = "File Uploaded";
   document.getElementById("detailsheader").innerHTML = "<h3>Files<h3>";
   document.getElementById("details").innerHTML = xmlhttp.responseText;
+  updateHeader();
 }
 function errorHandler(event) {
   _("status").innerHTML = "Upload Failed";
 }
 function abortHandler(event) {
-  _("status").innerHTML = "inUpload Aborted";
+  _("status").innerHTML = "Upload Aborted";
 }
 </script>
 </body>
