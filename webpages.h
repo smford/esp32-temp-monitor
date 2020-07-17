@@ -21,6 +21,16 @@ const char index_html[] PROGMEM = R"rawliteral(
   <p id="detailsheader"></p>
   <p id="details"></p>
 <script>
+function submitForm(oFormElement) {
+  var xhr = new XMLHttpRequest();
+  xhr.onload = function() {
+    document.getElementById("status").innerHTML = xhr.responseText;
+    displayEditConfig();
+  }
+  xhr.open(oFormElement.method, oFormElement.getAttribute("action"));
+  xhr.send(new FormData(oFormElement));
+  return false;
+}
 function displayEditConfig() {
   document.getElementById("detailsheader").innerHTML = "<h3>Configuration<h3>";
   xmlhttp=new XMLHttpRequest();
@@ -30,11 +40,9 @@ function displayEditConfig() {
   var displaydata = "<table><tr><th align='left'>Setting</th><th align='left'>Current</th><th align='left'>New</th></tr>";
   for (var key of Object.keys(mydata)) {
     if (key.toLowerCase().includes("password") || key.toLowerCase().includes("token")) {
-       displaydata = displaydata + "<tr><td align='left'>" + key + "</td><td align='left'>" + "**********" + "</td><td align='left'><form action='/set'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
-      //displaydata = displaydata + "<tr><td align='left'>" + key + "</td><td align='left'>" + "**********" + "</td><td align='left'><form onsubmit='myFunction()' action='/set'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
+      displaydata = displaydata + "<tr><td align='left'>" + key + "</td><td align='left'>" + "**********" + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/set'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
     } else {
-      displaydata = displaydata + "<tr><td align='left'>" + key + "</td><td align='left'>" + mydata[key] + "</td><td align='left'><form action='/set'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
-      //displaydata = displaydata + "<tr><td align='left'>" + key + "</td><td align='left'>" + mydata[key] + "</td><td align='left'><form onsubmit='myFunction()' action='/set'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
+      displaydata = displaydata + "<tr><td align='left'>" + key + "</td><td align='left'>" + mydata[key] + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/set'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
     }
   }
   displaydata = displaydata + "</table>";

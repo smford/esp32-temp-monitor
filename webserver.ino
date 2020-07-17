@@ -81,13 +81,13 @@ void configureWebServer() {
     }
   });
 
-  server->on("/set", HTTP_GET, [](AsyncWebServerRequest * request) {
+  server->on("/set", HTTP_POST, [](AsyncWebServerRequest * request) {
     String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
 
     if (checkUserWebAuth(request)) {
 
       int numberOfParams = request->params();
-      /*
+
       Serial.println("Param number:" + String(numberOfParams));
       for (int i = 0; i < numberOfParams; i++) {
         AsyncWebParameter* p = request->getParam(i);
@@ -101,8 +101,7 @@ void configureWebServer() {
         } else {
           Serial.printf("Param:%s is invalid\n", p->name());
         }
-        }
-      */
+      }
 
       if (numberOfParams == 0) {
         request->send(200, "text/plain", "ERROR: Too few params supplied");
@@ -133,62 +132,62 @@ void configureWebServer() {
         syslogSend("Setting Change:" + String(myParam) + " From:" + config.hostname + " To:" + String(myValue));
         config.hostname = myValue;
         initiatesave = true;
-        request->send(200, "text/plain", "Set: hostname=" + config.hostname);
+        request->send(200, "text/plain", "Updated: Hostname=" + config.hostname);
       } else if (strcmp(myParam, "appname") == 0) {
         syslogSend("Setting Change:" + String(myParam) + " From:" + config.appname + " To:" + String(myValue));
         config.appname = myValue;
         initiatesave = true;
-        request->send(200, "text/plain", "Set: appname=" + config.appname);
+        request->send(200, "text/plain", "Updated: AppName=" + config.appname);
       } else if (strcmp(myParam, "ssid") == 0) {
         syslogSend("Setting Change:" + String(myParam) + " From:" + config.ssid + " To:" + String(myValue));
         config.ssid = myValue;
         initiatesave = true;
-        request->send(200, "text/plain", "Set: ssid=" + config.ssid);
+        request->send(200, "text/plain", "Updated: SSID=" + config.ssid);
       }
       else if (strcmp(myParam, "wifipassword") == 0) {
         syslogSend("Setting Change:" + String(myParam) + " From:" + "<redacted>" + " To:" + "<redacted>");
         config.wifipassword = myValue;
         initiatesave = true;
-        request->send(200, "text/plain", "Set: wifipassword=" + config.wifipassword);
+        request->send(200, "text/plain", "Updated: WifiPassword=" + config.wifipassword);
       }
       else if (strcmp(myParam, "httpuser") == 0) {
         syslogSend("Setting Change:" + String(myParam) + " From:" + config.httpuser + " To:" + String(myValue));
         config.httpuser = myValue;
         initiatesave = true;
-        request->send(200, "text/plain", "Set: httpuser=" + config.httpuser);
+        request->send(200, "text/plain", "Updated: HTTPUser=" + config.httpuser);
       }
       else if (strcmp(myParam, "httppassword") == 0) {
         syslogSend("Setting Change:" + String(myParam) + " From:" + "<redacted>" + " To:" + "<redacted>");
         config.httppassword = myValue;
         initiatesave = true;
-        request->send(200, "text/plain", "Set: httppassword=" + config.httppassword);
+        request->send(200, "text/plain", "Updated: HTTPPassword=" + config.httppassword);
       }
       else if (strcmp(myParam, "httpapitoken") == 0) {
         syslogSend("Setting Change:" + String(myParam) + " From:" + "<redacted>" + " To:" + "<redacted>");
         config.httpapitoken = myValue;
         initiatesave = true;
-        request->send(200, "text/plain", "Set: httpapitoken=" + config.httpapitoken);
+        request->send(200, "text/plain", "Updated: HTTPAPIToken=" + config.httpapitoken);
       }
       else if (strcmp(myParam, "webserverporthttp") == 0) {
         if ((atoi(myValue) <= 0) || (atoi(myValue) > 65535)) {
           syslogSend("Setting Change Failed: " + String(myParam) + " From:" + String(config.webserverporthttp) + " To:" + String(myValue) + " Invalid port number");
-          request->send(200, "text/plain", "Invalid webserverporthttp value " + String(myValue));
+          request->send(200, "text/plain", "ERROR: Invalid WebServerPortHTTP=" + String(myValue));
         } else {
           syslogSend("Setting Change:" + String(myParam) + " From:" + String(config.webserverporthttp) + " To:" + String(myValue));
           config.webserverporthttp = atoi(myValue);
           initiatesave = true;
-          request->send(200, "text/plain", "Set: webserverporthttp=" + String(config.webserverporthttp));
+          request->send(200, "text/plain", "Updated: WebServerPortHTTP=" + String(config.webserverporthttp));
         }
       }
       else if (strcmp(myParam, "webserverporthttps") == 0) {
         if ((atoi(myValue) <= 0) || (atoi(myValue) > 65535)) {
           syslogSend("Setting Change Failed: " + String(myParam) + " From:" + String(config.webserverporthttps) + " To:" + String(myValue) + " Invalid port number");
-          request->send(200, "text/plain", "Invalid webserverporthttps value " + String(myValue));
+          request->send(200, "text/plain", "ERROR: Invalid WebServerPortHTTPS=" + String(myValue));
         } else {
           syslogSend("Setting Change:" + String(myParam) + " From:" + String(config.webserverporthttps) + " To:" + String(myValue));
           config.webserverporthttps = atoi(myValue);
           initiatesave = true;
-          request->send(200, "text/plain", "Set: webserverporthttps=" + String(config.webserverporthttps));
+          request->send(200, "text/plain", "Updated: WebServerPortHTTPS=" + String(config.webserverporthttps));
         }
       }
       else if (strcmp(myParam, "syslogenable") == 0) {
@@ -200,7 +199,7 @@ void configureWebServer() {
           }
           config.syslogenable = true;
           initiatesave = true;
-          request->send(200, "text/plain", "Set: syslogenable=true");
+          request->send(200, "text/plain", "Updated: SyslogEnable=true");
         }
         else if (strcmp(myValue, "false") == 0) {
           if (config.syslogenable) {
@@ -210,26 +209,26 @@ void configureWebServer() {
           }
           config.syslogenable = false;
           initiatesave = true;
-          request->send(200, "text/plain", "Set: syslogenable=false");
+          request->send(200, "text/plain", "Updated: SyslogEnable=false");
         } else {
-          request->send(200, "text/plain", "Invalid syslogenable value " + String(myValue));
+          request->send(200, "text/plain", "ERROR: Invalid SyslogEnable value=" + String(myValue));
         }
       }
       else if (strcmp(myParam, "syslogserver") == 0) {
         syslogSend("Setting Change:" + String(myParam) + " From:" + config.syslogserver + " To:" + String(myValue));
         config.syslogserver = myValue;
         initiatesave = true;
-        request->send(200, "text/plain", "Set: syslogserver=" + config.syslogserver);
+        request->send(200, "text/plain", "Updated: SyslogServer=" + config.syslogserver);
       }
       else if (strcmp(myParam, "syslogport") == 0) {
         if ((atoi(myValue) <= 0) || (atoi(myValue) > 65535)) {
           syslogSend("Setting Change Failed: " + String(myParam) + " From:" + String(config.syslogport) + " To:" + String(myValue) + " Invalid port number");
-          request->send(200, "text/plain", "Invalid syslogport value " + String(myValue));
+          request->send(200, "text/plain", "ERROR: Invalid SyslogPort value=" + String(myValue));
         } else {
           syslogSend("Setting Change:" + String(myParam) + " From:" + String(config.syslogport) + " To:" + String(myValue));
           config.syslogport = atoi(myValue);
           initiatesave = true;
-          request->send(200, "text/plain", "Set: syslogport=" + String(config.syslogport));
+          request->send(200, "text/plain", "Updated: SyslogPort=" + String(config.syslogport));
         }
       }
       else if (strcmp(myParam, "telegrafenable") == 0) {
@@ -241,7 +240,7 @@ void configureWebServer() {
           }
           config.telegrafenable = true;
           initiatesave = true;
-          request->send(200, "text/plain", "Set: telegrafenable=true");
+          request->send(200, "text/plain", "Updated: TelegrafEnable=true");
         } if (strcmp(myValue, "false") == 0) {
           if (config.telegrafenable) {
             syslogSend("Setting Change:" + String(myParam) + " From:" + "true" + " To:false");
@@ -250,54 +249,54 @@ void configureWebServer() {
           }
           config.telegrafenable = false;
           initiatesave = true;
-          request->send(200, "text/plain", "Set: telegrafenable=false");
+          request->send(200, "text/plain", "Updated: TelegrafEnable=false");
         } else {
-          request->send(200, "text/plain", "Invalid telegrafenable value " + String(myValue));
+          request->send(200, "text/plain", "ERROR: Invalid TelegrafEnable value=" + String(myValue));
         }
       }
       else if (strcmp(myParam, "telegrafserver") == 0) {
         syslogSend("Setting Change:" + String(myParam) + " From:" + config.telegrafserver + " To:" + String(myValue));
         config.telegrafserver = myValue;
         initiatesave = true;
-        request->send(200, "text/plain", "Set: telegrafserver=" + config.telegrafserver);
+        request->send(200, "text/plain", "Updated: TelegrafServer=" + config.telegrafserver);
       }
       else if (strcmp(myParam, "telegrafserverport") == 0) {
         if ((atoi(myValue) <= 0) || (atoi(myValue) > 65535)) {
           syslogSend("Setting Change Failed: " + String(myParam) + " From:" + String(config.telegrafserverport) + " To:" + String(myValue) + " Invalid port number");
-          request->send(200, "text/plain", "Invalid telegrafserverport value " + String(myValue));
+          request->send(200, "text/plain", "ERROR: Invalid TelegrafServerPort value=" + String(myValue));
         } else {
           syslogSend("Setting Change:" + String(myParam) + " From:" + String(config.telegrafserverport) + " To:" + String(myValue));
           config.telegrafserverport = atoi(myValue);
           initiatesave = true;
-          request->send(200, "text/plain", "Set: telegrafserverport=" + String(config.telegrafserverport));
+          request->send(200, "text/plain", "Updated: TelegrafServerPort=" + String(config.telegrafserverport));
         }
       }
       else if (strcmp(myParam, "telegrafshiptime") == 0) {
         if (atoi(myValue) <= 0) {
           syslogSend("Setting Change Failed: " + String(myParam) + " From:" + config.telegrafshiptime + " To:" + String(myValue) + "Invalid ship time");
-          request->send(200, "text/plain", "Invalid telegrafshiptime value " + String(myValue));
+          request->send(200, "text/plain", "ERROR: Invalid TelegrafShipTime value=" + String(myValue));
         } else {
           syslogSend("Setting Change:" + String(myParam) + " From:" + config.telegrafshiptime + " To:" + String(myValue));
           config.telegrafshiptime = atoi(myValue);
           initiatesave = true;
-          request->send(200, "text/plain", "Set: telegrafshiptime=" + String(config.telegrafshiptime));
+          request->send(200, "text/plain", "Updated: TelegrafShipTime=" + String(config.telegrafshiptime));
         }
       }
       else if (strcmp(myParam, "tempchecktime") == 0) {
         if (atoi(myValue) <= 0) {
           syslogSend("Setting Change Failed: " + String(myParam) + " From:" + config.tempchecktime + " To:" + String(myValue) + "Invalid temp check time");
-          request->send(200, "text/plain", "Invalid tempchecktime value " + String(myValue));
+          request->send(200, "text/plain", "ERROR: Invalid TempCheckTime value=" + String(myValue));
         } else {
           syslogSend("Setting Change:" + String(myParam) + " From:" + config.tempchecktime + " To:" + String(myValue));
           config.tempchecktime = atoi(myValue);
           initiatesave = true;
-          request->send(200, "text/plain", "Set: tempchecktime=" + String(config.tempchecktime));
+          request->send(200, "text/plain", "Updated: TempCheckTime=" + String(config.tempchecktime));
         }
       }
       //=====================
       else {
         syslogSend("ERROR: no valid config options supplied");
-        request->send(200, "text/plain", "ERROR: no valid config options supplied");
+        request->send(200, "text/plain", "ERROR: No valid config options supplied");
       }
 
       if (initiatesave) {

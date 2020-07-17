@@ -11,7 +11,7 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.0.2"
+#define FIRMWARE_VERSION "v0.0.3"
 
 // configuration structure
 struct Config {
