@@ -11,7 +11,7 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.0.1"
+#define FIRMWARE_VERSION "v0.0.2"
 
 // configuration structure
 struct Config {
@@ -33,6 +33,8 @@ struct Config {
   int telegrafshiptime;      // how often in seconds we should ship metrics to telegraf
   int tempchecktime;         // how often in seconds to check temperature
 };
+
+const char *validConfSettings[] = {"hostname", "appname", "ssid", "wifipassword", "httpuser", "httppassword", "httpapitoken", "webserverporthttp", "webserverporthttps", "syslogenable", "syslogserver", "syslogport", "telegrafenable", "telegrafserver", "telegrafserverport", "telegrafshiptime", "tempchecktime"};
 
 // function defaults
 String listFiles(bool ishtml = false);
@@ -66,6 +68,7 @@ LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
 
 void setup() {
   Serial.begin(115200);
+
   setupLCD();
 
   Serial.println("Booting ...");
@@ -130,13 +133,11 @@ void setup() {
     syslog.defaultPriority(LOG_INFO);
   }
 
-  // configure web server
-  Serial.println("Configuring Webserver ...");
+  syslogSend("Configuring Webserver ...");
   server = new AsyncWebServer(config.webserverporthttp);
   configureWebServer();
 
-  Serial.println("Starting Webserver ...");
-  // startup web server
+  syslogSend("Starting Webserver ...");
   server->begin();
 
   Wire.begin();
@@ -172,7 +173,6 @@ void loop() {
 String i2cScanner() {
   byte error, address;
   String returnText = "[";
-  Serial.println("Scanning I2C");
   syslogSend("Scanning I2C");
   for (address = 1; address < 127; address++ ) {
     Wire.beginTransmission(address);
@@ -210,7 +210,6 @@ String getESPTemp() {
 }
 
 void rebootESP(String message) {
-  Serial.print("Rebooting ESP32: "); Serial.println(message);
   syslogSend("Rebooting ESP32: " + message);
   // wait 10 seconds to allow syslog to be sent
   delay(10000);
@@ -220,7 +219,7 @@ void rebootESP(String message) {
 // list all of the files, if ishtml=true, return html rather than simple text
 String listFiles(bool ishtml) {
   String returnText = "";
-  Serial.println("Listing files stored on SPIFFS");
+  syslogSend("Listing files stored on SPIFFS");
   File root = SPIFFS.open("/");
   File foundfile = root.openNextFile();
   if (ishtml) {
@@ -256,13 +255,14 @@ String humanReadableSize(const size_t bytes) {
 
 void shipMetric(String metric, String value) {
   String line = config.appname + "-" + metric + " value=" + value;
-  Serial.print("Shipping: "); Serial.println(line);
+  //Serial.print("Shipping: "); Serial.println(line);
   udpClient.beginPacket(config.telegrafserver.c_str(), config.telegrafserverport);
   udpClient.print(line);
   udpClient.endPacket();
 }
 
 void syslogSend(String message) {
+  Serial.println(message);
   if (config.syslogenable) {
     syslog.log(message);
   }
@@ -302,4 +302,16 @@ String getConfig() {
   String fullConfig = "";
   serializeJson(configDoc, fullConfig);
   return fullConfig;
+}
+
+bool checkSetting(const char *Name) {
+  int arraySize = sizeof(validConfSettings) / sizeof(validConfSettings[0]);
+  for (int i = 0; i < arraySize; i++) {
+    //Serial.printf("validConfSettings[%d]=%s\n", i, validConfSettings[i]);
+    if (strcmp(Name, validConfSettings[i]) == 0) {
+      syslogSend("Valid Configuration setting found: " + String(Name));
+      return true;
+    }
+  }
+  return false;
 }

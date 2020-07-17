@@ -1,5 +1,6 @@
 // based upon https://arduinojson.org/v6/example/config/
 void loadConfiguration(const char *filename, Config &config) {
+  // not using syslogSend here because it can be called before syslog has been configured
   Serial.println("Loading configuration from " + String(filename));
 
   // flag used to detect if a default value is loaded, if default value loaded initiate a save after load
@@ -146,6 +147,9 @@ void loadConfiguration(const char *filename, Config &config) {
 }
 
 void saveConfiguration(const char *filename, const Config &config) {
+  // not using syslogSend here because it can be called before syslog has been configured
+
+
   // Delete existing file, otherwise the configuration is appended to the file
   SPIFFS.remove(filename);
 

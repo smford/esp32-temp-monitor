@@ -30,9 +30,11 @@ function displayEditConfig() {
   var displaydata = "<table><tr><th align='left'>Setting</th><th align='left'>Current</th><th align='left'>New</th></tr>";
   for (var key of Object.keys(mydata)) {
     if (key.toLowerCase().includes("password") || key.toLowerCase().includes("token")) {
-      displaydata = displaydata + "<tr><td align='left'>" + key + "</td><td align='left'>" + "**********" + "</td><td align='left'><form action='/set'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
+       displaydata = displaydata + "<tr><td align='left'>" + key + "</td><td align='left'>" + "**********" + "</td><td align='left'><form action='/set'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
+      //displaydata = displaydata + "<tr><td align='left'>" + key + "</td><td align='left'>" + "**********" + "</td><td align='left'><form onsubmit='myFunction()' action='/set'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
     } else {
       displaydata = displaydata + "<tr><td align='left'>" + key + "</td><td align='left'>" + mydata[key] + "</td><td align='left'><form action='/set'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
+      //displaydata = displaydata + "<tr><td align='left'>" + key + "</td><td align='left'>" + mydata[key] + "</td><td align='left'><form onsubmit='myFunction()' action='/set'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
     }
   }
   displaydata = displaydata + "</table>";

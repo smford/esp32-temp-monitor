@@ -40,79 +40,43 @@ void configureWebServer() {
   });
 
   server->on("/logged-out", HTTP_GET, [](AsyncWebServerRequest * request) {
-    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
-    Serial.println(logmessage);
-    syslogSend(logmessage);
+    syslogSend("Client:" + request->client()->remoteIP().toString() + " " + request->url());
     request->send_P(401, "text/html", logout_html, processor);
   });
 
   server->on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
+    // not using checkUserWebAuth here because this page is not presented via api
     if (!request->authenticate(config.httpuser.c_str(), config.httppassword.c_str())) {
+      syslogSend("Client:" + request->client()->remoteIP().toString() + " " + request->url() + " Auth:Failed, Requesting Authentication");
       return request->requestAuthentication();
     }
 
+    /*
     int headers = request->headers();
     int i;
     for (i = 0; i < headers; i++) {
       AsyncWebHeader* h = request->getHeader(i);
       Serial.printf("HEADER[%s]: %s\n", h->name().c_str(), h->value().c_str());
     }
+    */
 
-    String logmessage = "Client:" + request->client()->remoteIP().toString() + + " " + request->url();
-    Serial.println(logmessage);
-    syslogSend(logmessage);
+    syslogSend("Client:" + request->client()->remoteIP().toString() + + " " + request->url() + " Auth:Success");
     request->send_P(200, "text/html", index_html, processor);
   });
 
   server->on("/reboot", HTTP_GET, [](AsyncWebServerRequest * request) {
-    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
-
     if (checkUserWebAuth(request)) {
       request->send(200, "text/html", reboot_html);
-      logmessage += " Auth: Success";
-      Serial.println(logmessage);
-      syslogSend(logmessage);
       shouldReboot = true;
     } else {
-      logmessage += " Auth: Failed";
-      Serial.println(logmessage);
-      syslogSend(logmessage);
-      return request->requestAuthentication();
-    }
-  });
-
-  server->on("/set1", HTTP_GET, [](AsyncWebServerRequest * request) {
-    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
-
-    if (checkUserWebAuth(request)) {
-      if (request->hasParam("name") && request->hasParam("value")) {
-        const char *Name = request->getParam("name")->value().c_str();
-        const char *Value = request->getParam("value")->value().c_str();
-        if (setValue(Name, Value)) {
-          request->send(200, "text/plain", "Set: " + String(Name) + "=" + String(Value));
-        } else {
-          request->send(200, "text/plain", "Failed Set: " + String(Name) + "=" + String(Value));
-        }
-      }
-    } else {
-      logmessage += " Auth: Failed";
-      Serial.println(logmessage);
-      syslogSend(logmessage);
       return request->requestAuthentication();
     }
   });
 
   server->on("/fullconfig", HTTP_GET, [](AsyncWebServerRequest * request) {
-    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
     if (checkUserWebAuth(request)) {
-      logmessage += " Auth: Success";
-      Serial.println(logmessage);
-      syslog.log(logmessage);
       request->send(200, "application/json", getConfig());
     } else {
-      logmessage += " Auth: Failed";
-      Serial.println(logmessage);
-      syslog.log(logmessage);
       return request->requestAuthentication();
     }
   });
@@ -122,38 +86,227 @@ void configureWebServer() {
 
     if (checkUserWebAuth(request)) {
 
-      int paramsNr = request->params();
-      Serial.println(paramsNr);
-      for (int i = 0; i < paramsNr; i++) {
+      int numberOfParams = request->params();
+      /*
+      Serial.println("Param number:" + String(numberOfParams));
+      for (int i = 0; i < numberOfParams; i++) {
         AsyncWebParameter* p = request->getParam(i);
         Serial.print("Param name: ");
         Serial.println(p->name());
         Serial.print("Param value: ");
         Serial.println(p->value());
         Serial.println("------");
+        if (checkSetting(p->name().c_str())) {
+          Serial.printf("Param:%s is valid\n", p->name());
+        } else {
+          Serial.printf("Param:%s is invalid\n", p->name());
+        }
+        }
+      */
+
+      if (numberOfParams == 0) {
+        request->send(200, "text/plain", "ERROR: Too few params supplied");
+        return;
       }
+
+      if (numberOfParams > 1) {
+        request->send(200, "text/plain", "ERROR: Too many params supplied");
+        return;
+      }
+
+      const char *myParam = request->getParam(0)->name().c_str();
+      const char *myValue = request->getParam(0)->value().c_str();
+
+      if (checkSetting(myParam)) {
+        Serial.printf("Param:%s is valid\n", myParam);
+      } else {
+        Serial.printf("Param:%s is invalid\n", myParam);
+        request->send(200, "text/plain", "ERROR: Invalid config param supplied");
+        return;
+      }
+
+      //printWebAdminArgs(request);
 
       bool initiatesave = false;
 
-      if (request->hasParam("hostname")) {
-        config.hostname = request->getParam("hostname")->value();
+      if (strcmp(myParam, "hostname") == 0) {
+        syslogSend("Setting Change:" + String(myParam) + " From:" + config.hostname + " To:" + String(myValue));
+        config.hostname = myValue;
         initiatesave = true;
         request->send(200, "text/plain", "Set: hostname=" + config.hostname);
-      } else if (request->hasParam("appname")) {
-        config.appname = request->getParam("appname")->value();
+      } else if (strcmp(myParam, "appname") == 0) {
+        syslogSend("Setting Change:" + String(myParam) + " From:" + config.appname + " To:" + String(myValue));
+        config.appname = myValue;
         initiatesave = true;
         request->send(200, "text/plain", "Set: appname=" + config.appname);
-      } else {
-        Serial.println("no matching params supplied");
-        request->send(200, "text/plain", "no setting supplied");
+      } else if (strcmp(myParam, "ssid") == 0) {
+        syslogSend("Setting Change:" + String(myParam) + " From:" + config.ssid + " To:" + String(myValue));
+        config.ssid = myValue;
+        initiatesave = true;
+        request->send(200, "text/plain", "Set: ssid=" + config.ssid);
       }
+      else if (strcmp(myParam, "wifipassword") == 0) {
+        syslogSend("Setting Change:" + String(myParam) + " From:" + "<redacted>" + " To:" + "<redacted>");
+        config.wifipassword = myValue;
+        initiatesave = true;
+        request->send(200, "text/plain", "Set: wifipassword=" + config.wifipassword);
+      }
+      else if (strcmp(myParam, "httpuser") == 0) {
+        syslogSend("Setting Change:" + String(myParam) + " From:" + config.httpuser + " To:" + String(myValue));
+        config.httpuser = myValue;
+        initiatesave = true;
+        request->send(200, "text/plain", "Set: httpuser=" + config.httpuser);
+      }
+      else if (strcmp(myParam, "httppassword") == 0) {
+        syslogSend("Setting Change:" + String(myParam) + " From:" + "<redacted>" + " To:" + "<redacted>");
+        config.httppassword = myValue;
+        initiatesave = true;
+        request->send(200, "text/plain", "Set: httppassword=" + config.httppassword);
+      }
+      else if (strcmp(myParam, "httpapitoken") == 0) {
+        syslogSend("Setting Change:" + String(myParam) + " From:" + "<redacted>" + " To:" + "<redacted>");
+        config.httpapitoken = myValue;
+        initiatesave = true;
+        request->send(200, "text/plain", "Set: httpapitoken=" + config.httpapitoken);
+      }
+      else if (strcmp(myParam, "webserverporthttp") == 0) {
+        if ((atoi(myValue) <= 0) || (atoi(myValue) > 65535)) {
+          syslogSend("Setting Change Failed: " + String(myParam) + " From:" + String(config.webserverporthttp) + " To:" + String(myValue) + " Invalid port number");
+          request->send(200, "text/plain", "Invalid webserverporthttp value " + String(myValue));
+        } else {
+          syslogSend("Setting Change:" + String(myParam) + " From:" + String(config.webserverporthttp) + " To:" + String(myValue));
+          config.webserverporthttp = atoi(myValue);
+          initiatesave = true;
+          request->send(200, "text/plain", "Set: webserverporthttp=" + String(config.webserverporthttp));
+        }
+      }
+      else if (strcmp(myParam, "webserverporthttps") == 0) {
+        if ((atoi(myValue) <= 0) || (atoi(myValue) > 65535)) {
+          syslogSend("Setting Change Failed: " + String(myParam) + " From:" + String(config.webserverporthttps) + " To:" + String(myValue) + " Invalid port number");
+          request->send(200, "text/plain", "Invalid webserverporthttps value " + String(myValue));
+        } else {
+          syslogSend("Setting Change:" + String(myParam) + " From:" + String(config.webserverporthttps) + " To:" + String(myValue));
+          config.webserverporthttps = atoi(myValue);
+          initiatesave = true;
+          request->send(200, "text/plain", "Set: webserverporthttps=" + String(config.webserverporthttps));
+        }
+      }
+      else if (strcmp(myParam, "syslogenable") == 0) {
+        if (strcmp(myValue, "true") == 0) {
+          if (config.syslogenable) {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "true" + " To:true");
+          } else {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "false" + " To:true");
+          }
+          config.syslogenable = true;
+          initiatesave = true;
+          request->send(200, "text/plain", "Set: syslogenable=true");
+        }
+        else if (strcmp(myValue, "false") == 0) {
+          if (config.syslogenable) {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "true" + " To:false");
+          } else {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "false" + " To:false");
+          }
+          config.syslogenable = false;
+          initiatesave = true;
+          request->send(200, "text/plain", "Set: syslogenable=false");
+        } else {
+          request->send(200, "text/plain", "Invalid syslogenable value " + String(myValue));
+        }
+      }
+      else if (strcmp(myParam, "syslogserver") == 0) {
+        syslogSend("Setting Change:" + String(myParam) + " From:" + config.syslogserver + " To:" + String(myValue));
+        config.syslogserver = myValue;
+        initiatesave = true;
+        request->send(200, "text/plain", "Set: syslogserver=" + config.syslogserver);
+      }
+      else if (strcmp(myParam, "syslogport") == 0) {
+        if ((atoi(myValue) <= 0) || (atoi(myValue) > 65535)) {
+          syslogSend("Setting Change Failed: " + String(myParam) + " From:" + String(config.syslogport) + " To:" + String(myValue) + " Invalid port number");
+          request->send(200, "text/plain", "Invalid syslogport value " + String(myValue));
+        } else {
+          syslogSend("Setting Change:" + String(myParam) + " From:" + String(config.syslogport) + " To:" + String(myValue));
+          config.syslogport = atoi(myValue);
+          initiatesave = true;
+          request->send(200, "text/plain", "Set: syslogport=" + String(config.syslogport));
+        }
+      }
+      else if (strcmp(myParam, "telegrafenable") == 0) {
+        if (strcmp(myValue, "true") == 0) {
+          if (config.telegrafenable) {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "true" + " To:true");
+          } else {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "false" + " To:true");
+          }
+          config.telegrafenable = true;
+          initiatesave = true;
+          request->send(200, "text/plain", "Set: telegrafenable=true");
+        } if (strcmp(myValue, "false") == 0) {
+          if (config.telegrafenable) {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "true" + " To:false");
+          } else {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "false" + " To:false");
+          }
+          config.telegrafenable = false;
+          initiatesave = true;
+          request->send(200, "text/plain", "Set: telegrafenable=false");
+        } else {
+          request->send(200, "text/plain", "Invalid telegrafenable value " + String(myValue));
+        }
+      }
+      else if (strcmp(myParam, "telegrafserver") == 0) {
+        syslogSend("Setting Change:" + String(myParam) + " From:" + config.telegrafserver + " To:" + String(myValue));
+        config.telegrafserver = myValue;
+        initiatesave = true;
+        request->send(200, "text/plain", "Set: telegrafserver=" + config.telegrafserver);
+      }
+      else if (strcmp(myParam, "telegrafserverport") == 0) {
+        if ((atoi(myValue) <= 0) || (atoi(myValue) > 65535)) {
+          syslogSend("Setting Change Failed: " + String(myParam) + " From:" + String(config.telegrafserverport) + " To:" + String(myValue) + " Invalid port number");
+          request->send(200, "text/plain", "Invalid telegrafserverport value " + String(myValue));
+        } else {
+          syslogSend("Setting Change:" + String(myParam) + " From:" + String(config.telegrafserverport) + " To:" + String(myValue));
+          config.telegrafserverport = atoi(myValue);
+          initiatesave = true;
+          request->send(200, "text/plain", "Set: telegrafserverport=" + String(config.telegrafserverport));
+        }
+      }
+      else if (strcmp(myParam, "telegrafshiptime") == 0) {
+        if (atoi(myValue) <= 0) {
+          syslogSend("Setting Change Failed: " + String(myParam) + " From:" + config.telegrafshiptime + " To:" + String(myValue) + "Invalid ship time");
+          request->send(200, "text/plain", "Invalid telegrafshiptime value " + String(myValue));
+        } else {
+          syslogSend("Setting Change:" + String(myParam) + " From:" + config.telegrafshiptime + " To:" + String(myValue));
+          config.telegrafshiptime = atoi(myValue);
+          initiatesave = true;
+          request->send(200, "text/plain", "Set: telegrafshiptime=" + String(config.telegrafshiptime));
+        }
+      }
+      else if (strcmp(myParam, "tempchecktime") == 0) {
+        if (atoi(myValue) <= 0) {
+          syslogSend("Setting Change Failed: " + String(myParam) + " From:" + config.tempchecktime + " To:" + String(myValue) + "Invalid temp check time");
+          request->send(200, "text/plain", "Invalid tempchecktime value " + String(myValue));
+        } else {
+          syslogSend("Setting Change:" + String(myParam) + " From:" + config.tempchecktime + " To:" + String(myValue));
+          config.tempchecktime = atoi(myValue);
+          initiatesave = true;
+          request->send(200, "text/plain", "Set: tempchecktime=" + String(config.tempchecktime));
+        }
+      }
+      //=====================
+      else {
+        syslogSend("ERROR: no valid config options supplied");
+        request->send(200, "text/plain", "ERROR: no valid config options supplied");
+      }
+
       if (initiatesave) {
-        Serial.println("Changed configuration " + String(filename));
+        syslogSend("Saving Configuration:" + String(filename));
         saveConfiguration(filename, config);
       }
+
     } else {
       logmessage += " Auth: Failed";
-      Serial.println(logmessage);
       syslogSend(logmessage);
       return request->requestAuthentication();
     }
@@ -161,25 +314,17 @@ void configureWebServer() {
 
   server->on("/listfiles", HTTP_GET, [](AsyncWebServerRequest * request)
   {
-    String logmessage = "Client: " + request->client()->remoteIP().toString() + " " + request->url();
     if (checkUserWebAuth(request)) {
-      logmessage += " Auth: Success";
-      Serial.println(logmessage);
-      syslogSend(logmessage);
       request->send(200, "text/plain", listFiles(true));
     } else {
-      logmessage += " Auth: Failed";
-      Serial.println(logmessage);
-      syslogSend(logmessage);
       return request->requestAuthentication();
     }
   });
 
   server->on("/file", HTTP_GET, [](AsyncWebServerRequest * request) {
-    String logmessage = "Client: " + request->client()->remoteIP().toString() + " " + request->url();
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
     if (checkUserWebAuth(request)) {
       logmessage += " Auth: Success";
-      Serial.println(logmessage);
       syslogSend(logmessage);
 
       printWebAdminArgs(request);
@@ -188,14 +333,12 @@ void configureWebServer() {
         const char *fileName = request->getParam("name")->value().c_str();
         const char *fileAction = request->getParam("action")->value().c_str();
 
-        logmessage = "Client: " + request->client()->remoteIP().toString() + " " + request->url() + " ?name=" + String(fileName) + "&action=" + String(fileAction);
+        logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url() + "?name=" + String(fileName) + "&action=" + String(fileAction);
 
         if (!SPIFFS.exists(fileName)) {
-          Serial.println(logmessage + " ERROR : file does not exist");
-          syslogSend(logmessage + " ERROR : file does not exist");
-          request->send(400, "text/plain", "ERROR : file does not exist");
+          syslogSend(logmessage + " ERROR:File does not exist");
+          request->send(400, "text/plain", "ERROR:File does not exist");
         } else {
-          Serial.println(logmessage + " file exists");
           syslogSend(logmessage + " file exists");
           if (strcmp(fileAction, "download") == 0) {
             logmessage += " downloaded";
@@ -203,20 +346,18 @@ void configureWebServer() {
           } else if (strcmp(fileAction, "delete") == 0) {
             logmessage += " deleted";
             SPIFFS.remove(fileName);
-            request->send(200, "text/plain", "Deleted File : " + String(fileName));
+            request->send(200, "text/plain", "Deleted File:" + String(fileName));
           } else {
-            logmessage += " ERROR : invalid action param supplied";
-            request->send(400, "text/plain", "ERROR : invalid action param supplied");
+            logmessage += " ERROR:Invalid action param supplied";
+            request->send(400, "text/plain", "ERROR:Invalid action param supplied");
           }
-          Serial.println(logmessage);
           syslogSend(logmessage);
         }
       } else {
-        request->send(400, "text/plain", "ERROR : name and action params required");
+        request->send(400, "text/plain", "ERROR:Name and action params required");
       }
     } else {
-      logmessage += " Auth : Failed";
-      Serial.println(logmessage);
+      logmessage += " Auth:Failed";
       syslogSend(logmessage);
       return request->requestAuthentication();
     }
@@ -224,8 +365,7 @@ void configureWebServer() {
 }
 
 void notFound(AsyncWebServerRequest *request) {
-  String logmessage = "Client : " + request->client()->remoteIP().toString() + " " + request->url();
-  Serial.println(logmessage);
+  String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
   syslogSend(logmessage);
   request->send(404, "text/plain", "Not found");
 }
@@ -234,66 +374,62 @@ void notFound(AsyncWebServerRequest *request) {
 bool checkUserWebAuth(AsyncWebServerRequest * request) {
   bool isAuthenticated = false;
 
+  String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+
   if (request->hasParam("api") && (strcmp(request->getParam("api")->value().c_str(), config.httpapitoken.c_str()) == 0)) {
+    syslogSend(logmessage + " Authenticated via API");
     isAuthenticated = true;
   }
 
   if (request->authenticate(config.httpuser.c_str(), config.httppassword.c_str())) {
-    Serial.println("is authenticated via username and password");
+    syslogSend(logmessage + " Authenticated via username and password");
     isAuthenticated = true;
   }
+
+  if (isAuthenticated == false) {
+    syslogSend(logmessage + " Failed Authentication");
+  }
+  
   return isAuthenticated;
 }
 
 void printWebAdminArgs(AsyncWebServerRequest * request) {
+  Serial.println();
   int args = request->args();
   for (int i = 0; i < args; i++) {
-    Serial.printf("ARG[ % s] : % s\n", request->argName(i).c_str(), request->arg(i).c_str());
+    Serial.printf("ARG[%s]:%s\n", request->argName(i).c_str(), request->arg(i).c_str());
   }
 }
 
 // handles uploads to the filserver
 void handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
-  // make sure authenticated before allowing upload
+  // make sure authenticated before allowing upload, upload no available by api yet
   if (!request->authenticate(config.httpuser.c_str(), config.httppassword.c_str())) {
     return request->requestAuthentication();
   }
 
-  String logmessage = "Client : " + request->client()->remoteIP().toString() + " " + request->url();
-  Serial.println(logmessage);
+  String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
   syslogSend(logmessage);
 
   if (!index) {
-    logmessage = "Upload Start : " + String(filename);
+    logmessage = "Upload Start:" + String(filename);
     // open the file on first call and store the file handle in the request object
     request->_tempFile = SPIFFS.open("/" + filename, "w");
-    Serial.println(logmessage);
     syslogSend(logmessage);
   }
 
   if (len) {
     // stream the incoming chunk to the opened file
     request->_tempFile.write(data, len);
-    logmessage = "Writing file : " + String(filename) + " index=" + String(index) + " len=" + String(len);
-    Serial.println(logmessage);
+    logmessage = "Writing file:" + String(filename) + " index:" + String(index) + " len:" + String(len);
     syslogSend(logmessage);
   }
 
   if (final) {
-    logmessage = "Upload Complete : " + String(filename) + " size: " + String(index + len);
+    logmessage = "Upload Complete:" + String(filename) + " size:" + String(index + len);
     // close the file handle as the upload is now done
     request->_tempFile.close();
-    Serial.println(logmessage);
     syslogSend(logmessage);
     request->redirect("/");
   }
-}
-
-bool setValue(const char *Name, const char *Value) {
-  if (strcmp(Name, "hostname") == 0) {
-    Serial.printf("Name = % s equals hostname", Name);
-  } else {
-    Serial.printf("Name = % s does not equal hostname", Name);
-  }
-
 }
