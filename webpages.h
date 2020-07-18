@@ -9,10 +9,11 @@ const char index_html[] PROGMEM = R"rawliteral(
   <p>
   <table>
   <tr><td><span id="hostname">%HOSTNAME%</span></td></tr>
-  <tr><td>Firmware: %FIRMWARE%</td></tr>
-  <tr><td>Free Storage: <span id="freespiffs">%FREESPIFFS%</span> | Used Storage: <span id="usedspiffs">%USEDSPIFFS%</span> | Total Storage: <span id="totalspiffs">%TOTALSPIFFS%</span></td></tr>
-  <tr><td>ESP32 Temp: <span id="cputemp">%TEMP%</span> C</td></tr>
-  <tr><td><span id="status"> </span></td></tr>
+  <tr><td>Firmware:</td><td>%FIRMWARE%</td></tr>
+  <tr><td>Storage:</td><td>Free: <span id="freespiffs">%FREESPIFFS%</span> | Used: <span id="usedspiffs">%USEDSPIFFS%</span> | Total: <span id="totalspiffs">%TOTALSPIFFS%</span></td></tr>
+  <tr><td>ESP32 Temp</td><td><span id="cputemp">%TEMP%</span> C</td></tr>
+  <tr><td>Time:</td><td><span id="time">%TIME%</span></td></tr>
+  <tr><td>Status:</td><td><span id="status"> </span></td></tr>
   </table>
   </p>
   <p>

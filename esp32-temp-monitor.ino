@@ -8,10 +8,11 @@
 #include <SPIFFS.h>
 #include <LiquidCrystal_I2C.h>
 #include <ArduinoJson.h>
+#include <ezTime.h>
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.0.3"
+#define FIRMWARE_VERSION "v0.0.4"
 
 // configuration structure
 struct Config {
@@ -32,9 +33,16 @@ struct Config {
   int telegrafserverport;    // port number for telegraf
   int telegrafshiptime;      // how often in seconds we should ship metrics to telegraf
   int tempchecktime;         // how often in seconds to check temperature
+  String ntptimezone;        // ntp time zone to use, use the TZ database name from https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+  int ntpsynctime;           // how frequently to schedule the regular syncing of ntp time
+  int ntpwaitsynctime;       // upon boot, wait these many seconds to get ntp time from server
+  String ntpserver;          // hostname or ip of the ntpserver
 };
 
-const char *validConfSettings[] = {"hostname", "appname", "ssid", "wifipassword", "httpuser", "httppassword", "httpapitoken", "webserverporthttp", "webserverporthttps", "syslogenable", "syslogserver", "syslogport", "telegrafenable", "telegrafserver", "telegrafserverport", "telegrafshiptime", "tempchecktime"};
+const char *validConfSettings[] = {"hostname", "appname", "ssid", "wifipassword", "httpuser", "httppassword", "httpapitoken",
+                                   "webserverporthttp", "webserverporthttps", "syslogenable", "syslogserver", "syslogport",
+                                   "telegrafenable", "telegrafserver", "telegrafserverport", "telegrafshiptime", "tempchecktime",
+                                   "ntptimezone", "ntpsynctime", "ntpwaitsynctime", "ntpserver"};
 
 // function defaults
 String listFiles(bool ishtml = false);
@@ -46,6 +54,7 @@ bool shouldReboot = false;              // schedule a reboot
 AsyncWebServer *server;                 // initialise webserver
 unsigned long telegrafLastRunTime = 0;  // keeps track of the time when the last metrics were shipped for influxdb
 unsigned long tempCheckLastRunTime = 0; // keeps track of the time when the last temp check was run
+String bootTime;                        // used to record when the device was booted
 
 // internal ESP32 temp sensor
 #ifdef __cplusplus
@@ -62,6 +71,10 @@ WiFiUDP udpClient;
 
 // Syslog
 Syslog syslog(udpClient, SYSLOG_PROTO_IETF);
+
+// NTP
+Timezone myTZ;
+ezDebugLevel_t NTPDEBUG = INFO; // NONE, ERROR, INFO, DEBUG
 
 // LCD
 LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
@@ -121,6 +134,11 @@ void setup() {
     Serial.print("     Telegraf Port: "); Serial.println(config.telegrafserverport);
     Serial.print("Telegraf Ship Time: "); Serial.println(config.telegrafshiptime);
   }
+  Serial.print("    Temp Sync Time: "); Serial.println(config.tempsynctime);
+  Serial.print("        NTP Server: "); Serial.println(config.ntpserver);
+  Serial.print("      NTP Timezone: "); Serial.println(config.ntptimezone);
+  Serial.print("     NTP Sync Time: "); Serial.println(config.ntpsynctime);
+  Serial.print("NTP Wait Sync Time: "); Serial.println(config.ntpwaitsynctime);
 
   Serial.println();
 
@@ -133,6 +151,13 @@ void setup() {
     syslog.defaultPriority(LOG_INFO);
   }
 
+  waitForSync(config.ntpwaitsynctime);
+  setInterval(config.ntpsynctime);
+  setServer(config.ntpserver);
+  setDebug(NTPDEBUG);
+  myTZ.setLocation(config.ntptimezone);
+  Serial.print(config.ntptimezone + ": "); Serial.println(printTime());
+
   syslogSend("Configuring Webserver ...");
   server = new AsyncWebServer(config.webserverporthttp);
   configureWebServer();
@@ -141,13 +166,19 @@ void setup() {
   server->begin();
 
   Wire.begin();
-  Serial.println(i2cScanner());
+  i2cScanner();
+
+  bootTime = printTime();
+  syslogSend("Booted at: " + bootTime);
 
   printLCD("Ready", "Getting Temp");
 
 }
 
 void loop() {
+  // display ntp sync events on serial
+  events();
+
   // reboot if we've told it to reboot
   if (shouldReboot) {
     rebootESP("Web Admin Initiated Reboot");
@@ -299,6 +330,11 @@ String getConfig() {
   configDoc["TelegrafServer"] = config.telegrafserver;
   configDoc["TelegrafServerPort"] = config.telegrafserverport;
   configDoc["TelegrafShipTime"] = config.telegrafshiptime;
+  configDoc["TempCheckTime"] = config.tempchecktime;
+  configDoc["NTPServer"] = config.ntpserver;
+  configDoc["NTPTimezone"] = config.ntptimezone;
+  configDoc["NTPSyncTime"] = config.ntpsynctime;
+  configDoc["NTPWaitSyncTime"] = config.ntpwaitsynctime;
   String fullConfig = "";
   serializeJson(configDoc, fullConfig);
   return fullConfig;
@@ -311,6 +347,7 @@ String shortStatus() {
   shortStatusDoc["UsedSPIFFS"] = humanReadableSize(SPIFFS.usedBytes());
   shortStatusDoc["TotalSPIFFS"] = humanReadableSize(SPIFFS.totalBytes());
   shortStatusDoc["CPUTemp"] = getESPTemp();
+  shortStatusDoc["Time"] = printTime();
   String shortStatus = "";
   serializeJson(shortStatusDoc, shortStatus);
   return shortStatus;
@@ -326,4 +363,26 @@ bool checkSetting(const char *Name) {
     }
   }
   return false;
+}
+
+String printTime() {
+  return myTZ.dateTime();
+}
+
+String getTimeStatus() {
+  String myTimeStatus;
+  switch (timeStatus()) {
+    case 0:
+      myTimeStatus = "Time Not Set";
+      break;
+    case 1:
+      myTimeStatus = "Time Needs Syncing";
+      break;
+    case 2:
+      myTimeStatus = "Time Set";
+      break;
+    default:
+      myTimeStatus = "Unknown";
+  }
+  return myTimeStatus;
 }

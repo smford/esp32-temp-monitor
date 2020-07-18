@@ -23,6 +23,10 @@ String processor(const String& var) {
   if (var == "TOTALSPIFFS") {
     return humanReadableSize(SPIFFS.totalBytes());
   }
+
+  if (var == "TIME") {
+    return printTime();
+  }
 }
 
 void configureWebServer() {
@@ -308,6 +312,51 @@ void configureWebServer() {
           config.tempchecktime = atoi(myValue);
           initiatesave = true;
           request->send(200, "text/plain", "Updated: TempCheckTime=" + String(config.tempchecktime));
+        }
+      }
+      else if (strcmp(myParam, "tempchecktime") == 0) {
+        if (atoi(myValue) <= 0) {
+          syslogSend("Setting Change Failed: " + String(myParam) + " From:" + config.tempchecktime + " To:" + String(myValue) + "Invalid temp check time");
+          request->send(200, "text/plain", "ERROR: Invalid TempCheckTime value=" + String(myValue));
+        } else {
+          syslogSend("Setting Change:" + String(myParam) + " From:" + config.tempchecktime + " To:" + String(myValue));
+          config.tempchecktime = atoi(myValue);
+          initiatesave = true;
+          request->send(200, "text/plain", "Updated: TempCheckTime=" + String(config.tempchecktime));
+        }
+      }
+      else if (strcmp(myParam, "ntpserver") == 0) {
+        syslogSend("Setting Change:" + String(myParam) + " From:" + config.ntpserver + " To:" + String(myValue));
+        config.ntpserver = myValue;
+        initiatesave = true;
+        request->send(200, "text/plain", "Updated: NTPServer=" + config.ntpserver);
+      }
+      else if (strcmp(myParam, "ntptimezone") == 0) {
+        syslogSend("Setting Change:" + String(myParam) + " From:" + config.ntptimezone + " To:" + String(myValue));
+        config.ntptimezone = myValue;
+        initiatesave = true;
+        request->send(200, "text/plain", "Updated: NTPTimeZone=" + config.ntptimezone);
+      }
+      else if (strcmp(myParam, "ntpsynctime") == 0) {
+        if (atoi(myValue) <= 0) {
+          syslogSend("Setting Change Failed: " + String(myParam) + " From:" + config.ntpsynctime + " To:" + String(myValue) + "Invalid ntp sync time");
+          request->send(200, "text/plain", "ERROR: Invalid NTPSyncTime value=" + String(myValue));
+        } else {
+          syslogSend("Setting Change:" + String(myParam) + " From:" + config.ntpsynctime + " To:" + String(myValue));
+          config.ntpsynctime = atoi(myValue);
+          initiatesave = true;
+          request->send(200, "text/plain", "Updated: NTPSyncTime=" + String(config.ntpsynctime));
+        }
+      }
+      else if (strcmp(myParam, "ntpwaitsynctime") == 0) {
+        if (atoi(myValue) <= 0) {
+          syslogSend("Setting Change Failed: " + String(myParam) + " From:" + config.ntpwaitsynctime + " To:" + String(myValue) + "Invalid ntp wait sync time");
+          request->send(200, "text/plain", "ERROR: Invalid NTPSyncTime value=" + String(myValue));
+        } else {
+          syslogSend("Setting Change:" + String(myParam) + " From:" + config.ntpwaitsynctime + " To:" + String(myValue));
+          config.ntpwaitsynctime = atoi(myValue);
+          initiatesave = true;
+          request->send(200, "text/plain", "Updated: NTPWaitSyncTime=" + String(config.ntpwaitsynctime));
         }
       }
       //=====================

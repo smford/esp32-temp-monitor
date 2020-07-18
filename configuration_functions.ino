@@ -138,6 +138,30 @@ void loadConfiguration(const char *filename, Config &config) {
     config.tempchecktime = default_tempchecktime;
   }
 
+  config.ntpserver = doc["ntpserver"].as<String>();
+  if (config.ntpserver == "null") {
+    initiatesave = true;
+    config.ntpserver = default_ntpserver;
+  }
+
+  config.ntptimezone = doc["ntptimezone"].as<String>();
+  if (config.ntptimezone == "null") {
+    initiatesave = true;
+    config.ntptimezone = default_ntptimezone;
+  }
+
+  config.ntpsynctime = doc["ntpsynctime"];
+  if (config.ntpsynctime == 0) {
+    initiatesave = true;
+    config.ntpsynctime = default_ntpsynctime;
+  }
+
+  config.ntpwaitsynctime = doc["ntpwaitsynctime"];
+  if (config.ntpwaitsynctime == 0) {
+    initiatesave = true;
+    config.ntpwaitsynctime = default_ntpwaitsynctime;
+  }
+
   file.close();
 
   if (initiatesave) {
@@ -180,7 +204,10 @@ void saveConfiguration(const char *filename, const Config &config) {
   doc["telegrafserverport"] = config.telegrafserverport;
   doc["telegrafshiptime"] = config.telegrafshiptime;
   doc["tempchecktime"] = config.tempchecktime;
-
+  doc["ntpserver"] = config.ntpserver;
+  doc["ntptimezone"] = config.ntptimezone;
+  doc["ntpsynctime"] = config.ntpsynctime;
+  doc["ntpwaitsynctime"] = config.ntpwaitsynctime;
 
   // Serialize JSON to file
   if (serializeJson(doc, file) == 0) {
@@ -229,4 +256,8 @@ void printConfig() {
   Serial.print("  telegrafserverport: "); Serial.println(config.telegrafserverport);
   Serial.print("    telegrafshiptime: "); Serial.println(config.telegrafshiptime);
   Serial.print("       tempchecktime: "); Serial.println(config.tempchecktime);
+  Serial.print("           ntpserver: "); Serial.println(config.ntpserver);
+  Serial.print("         ntptimezone: "); Serial.println(config.ntptimezone);
+  Serial.print("         ntpsynctime: "); Serial.println(config.ntpsynctime);
+  Serial.print("     ntpwaitsynctime: "); Serial.println(config.ntpwaitsynctime);
 }
