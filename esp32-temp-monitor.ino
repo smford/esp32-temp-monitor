@@ -12,7 +12,7 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.0.4"
+#define FIRMWARE_VERSION "v0.0.5"
 
 // configuration structure
 struct Config {
@@ -33,16 +33,25 @@ struct Config {
   int telegrafserverport;    // port number for telegraf
   int telegrafshiptime;      // how often in seconds we should ship metrics to telegraf
   int tempchecktime;         // how often in seconds to check temperature
+  String ntpserver;          // hostname or ip of the ntpserver
   String ntptimezone;        // ntp time zone to use, use the TZ database name from https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
   int ntpsynctime;           // how frequently to schedule the regular syncing of ntp time
   int ntpwaitsynctime;       // upon boot, wait these many seconds to get ntp time from server
-  String ntpserver;          // hostname or ip of the ntpserver
+  bool pushoverenable;       // enable pushover
+  String pushoverapptoken;   // pushover app token
+  String pushoveruserkey;    // pushover user key
+  String pushoverdevice;     // pushover device name
 };
 
-const char *validConfSettings[] = {"hostname", "appname", "ssid", "wifipassword", "httpuser", "httppassword", "httpapitoken",
-                                   "webserverporthttp", "webserverporthttps", "syslogenable", "syslogserver", "syslogport",
-                                   "telegrafenable", "telegrafserver", "telegrafserverport", "telegrafshiptime", "tempchecktime",
-                                   "ntptimezone", "ntpsynctime", "ntpwaitsynctime", "ntpserver"};
+const char *validConfSettings[] = {"hostname", "appname",
+                                   "ssid", "wifipassword",
+                                   "httpuser", "httppassword", "httpapitoken",
+                                   "webserverporthttp", "webserverporthttps",
+                                   "syslogenable", "syslogserver", "syslogport",
+                                   "telegrafenable", "telegrafserver", "telegrafserverport", "telegrafshiptime",
+                                   "tempchecktime",
+                                   "ntpserver", "ntptimezone", "ntpsynctime", "ntpwaitsynctime",
+                                   "pushoverenable", "pushoverapptoken", "pushoveruserkey", "pushoverdevice"};
 
 // function defaults
 String listFiles(bool ishtml = false);
@@ -74,7 +83,7 @@ Syslog syslog(udpClient, SYSLOG_PROTO_IETF);
 
 // NTP
 Timezone myTZ;
-ezDebugLevel_t NTPDEBUG = INFO; // NONE, ERROR, INFO, DEBUG
+ezDebugLevel_t NTPDEBUG = ERROR; // NONE, ERROR, INFO, DEBUG
 
 // LCD
 LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
@@ -134,12 +143,17 @@ void setup() {
     Serial.print("     Telegraf Port: "); Serial.println(config.telegrafserverport);
     Serial.print("Telegraf Ship Time: "); Serial.println(config.telegrafshiptime);
   }
-  Serial.print("    Temp Sync Time: "); Serial.println(config.tempsynctime);
+  Serial.print("   Temp Check Time: "); Serial.println(config.tempchecktime);
   Serial.print("        NTP Server: "); Serial.println(config.ntpserver);
   Serial.print("      NTP Timezone: "); Serial.println(config.ntptimezone);
   Serial.print("     NTP Sync Time: "); Serial.println(config.ntpsynctime);
   Serial.print("NTP Wait Sync Time: "); Serial.println(config.ntpwaitsynctime);
-
+  if (config.pushoverenable) {
+    Serial.println("  Pushover Enabled: true");
+    Serial.print("Pushover APP Token: "); Serial.println(config.pushoverapptoken);
+    Serial.print(" Pushover User Key: "); Serial.println(config.pushoveruserkey);
+    Serial.print("   Pushover Device: "); Serial.println(config.pushoverdevice);
+  }
   Serial.println();
 
   if (config.syslogenable) {
@@ -335,6 +349,10 @@ String getConfig() {
   configDoc["NTPTimezone"] = config.ntptimezone;
   configDoc["NTPSyncTime"] = config.ntpsynctime;
   configDoc["NTPWaitSyncTime"] = config.ntpwaitsynctime;
+  configDoc["PushoverEnable"] = config.pushoverenable;
+  configDoc["PushoverAppToken"] = config.pushoverapptoken;
+  configDoc["PushoverUserKey"] = config.pushoveruserkey;
+  configDoc["PushoverDevice"] = config.pushoverdevice;
   String fullConfig = "";
   serializeJson(configDoc, fullConfig);
   return fullConfig;

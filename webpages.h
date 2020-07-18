@@ -11,7 +11,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   <tr><td><span id="hostname">%HOSTNAME%</span></td></tr>
   <tr><td>Firmware:</td><td>%FIRMWARE%</td></tr>
   <tr><td>Storage:</td><td>Free: <span id="freespiffs">%FREESPIFFS%</span> | Used: <span id="usedspiffs">%USEDSPIFFS%</span> | Total: <span id="totalspiffs">%TOTALSPIFFS%</span></td></tr>
-  <tr><td>ESP32 Temp</td><td><span id="cputemp">%TEMP%</span> C</td></tr>
+  <tr><td>ESP32 Temp:</td><td><span id="cputemp">%TEMP%</span> C</td></tr>
   <tr><td>Time:</td><td><span id="time">%TIME%</span></td></tr>
   <tr><td>Status:</td><td><span id="status"> </span></td></tr>
   </table>
@@ -58,11 +58,13 @@ function displayEditConfig() {
   var mydata = JSON.parse(xmlhttp.responseText);
   var displaydata = "<table><tr><th align='left'>Setting</th><th align='left'>Current</th><th align='left'>New</th></tr>";
   for (var key of Object.keys(mydata)) {
-    if (key.toLowerCase().includes("password") || key.toLowerCase().includes("token")) {
+    /*if (key.toLowerCase().includes("password") || key.toLowerCase().includes("token") || key.toLowerCase().includes("key")) {
       displaydata = displaydata + "<tr><td align='left'>" + key + "</td><td align='left'>" + "**********" + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/set'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
     } else {
       displaydata = displaydata + "<tr><td align='left'>" + key + "</td><td align='left'>" + mydata[key] + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/set'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
-    }
+    }*/
+    displaydata = displaydata + "<tr><td align='left'>" + key + "</td><td align='left'>" + mydata[key] + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/set'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
+
   }
   displaydata = displaydata + "</table>";
   document.getElementById("details").innerHTML = displaydata;

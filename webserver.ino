@@ -359,6 +359,47 @@ void configureWebServer() {
           request->send(200, "text/plain", "Updated: NTPWaitSyncTime=" + String(config.ntpwaitsynctime));
         }
       }
+      else if (strcmp(myParam, "pushoverenable") == 0) {
+        if (strcmp(myValue, "true") == 0) {
+          if (config.pushoverenable) {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "true" + " To:true");
+          } else {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "false" + " To:true");
+          }
+          config.pushoverenable = true;
+          initiatesave = true;
+          request->send(200, "text/plain", "Updated: PushoverEnable=true");
+        } if (strcmp(myValue, "false") == 0) {
+          if (config.pushoverenable) {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "true" + " To:false");
+          } else {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "false" + " To:false");
+          }
+          config.pushoverenable = false;
+          initiatesave = true;
+          request->send(200, "text/plain", "Updated: PushoverEnable=false");
+        } else {
+          request->send(200, "text/plain", "ERROR: Invalid PushverEnable value=" + String(myValue));
+        }
+      }
+      else if (strcmp(myParam, "pushoverapptoken") == 0) {
+        syslogSend("Setting Change:" + String(myParam) + " From:" + config.pushoverapptoken + " To:" + String(myValue));
+        config.pushoverapptoken = myValue;
+        initiatesave = true;
+        request->send(200, "text/plain", "Updated: PushoverAppToken=" + config.pushoverapptoken);
+      }
+      else if (strcmp(myParam, "pushoveruserkey") == 0) {
+        syslogSend("Setting Change:" + String(myParam) + " From:" + config.pushoveruserkey + " To:" + String(myValue));
+        config.pushoveruserkey = myValue;
+        initiatesave = true;
+        request->send(200, "text/plain", "Updated: PushoverUserKey=" + config.pushoveruserkey);
+      }
+      else if (strcmp(myParam, "pushoverdevice") == 0) {
+        syslogSend("Setting Change:" + String(myParam) + " From:" + config.pushoverdevice + " To:" + String(myValue));
+        config.pushoverdevice = myValue;
+        initiatesave = true;
+        request->send(200, "text/plain", "Updated: PushoverDevice=" + config.pushoverdevice);
+      }
       //=====================
       else {
         syslogSend("ERROR: no valid config options supplied");

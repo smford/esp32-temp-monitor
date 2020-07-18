@@ -2,7 +2,7 @@
 
 void pushoverSend(String message) {
   const char *serverName = "https://api.pushover.net/1/messages.json";
-  String httpRequestData = "token=" + default_potoken + "&user=" + default_pouser + "&title=" + config.hostname + "&message=" + message + "&device=" + default_podevice;
+  String httpRequestData = "token=" + config.pushoverapptoken + "&user=" + config.pushoveruserkey + "&title=" + config.hostname + "&message=" + message + "&device=" + config.pushoverdevice;
 
   HTTPClient http;
   

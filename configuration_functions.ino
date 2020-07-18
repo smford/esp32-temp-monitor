@@ -162,6 +162,31 @@ void loadConfiguration(const char *filename, Config &config) {
     config.ntpwaitsynctime = default_ntpwaitsynctime;
   }
 
+  if (doc.containsKey("pushoverenable")) {
+    config.pushoverenable = doc["pushoverenable"].as<bool>();
+  } else {
+    initiatesave = true;
+    config.pushoverenable = default_pushoverenable;
+  }
+
+  config.pushoverapptoken = doc["pushoverapptoken"].as<String>();
+  if (config.pushoverapptoken == "null") {
+    initiatesave = true;
+    config.pushoverapptoken = default_pushoverapptoken;
+  }
+
+  config.pushoveruserkey = doc["pushoveruserkey"].as<String>();
+  if (config.pushoveruserkey == "null") {
+    initiatesave = true;
+    config.pushoveruserkey = default_pushoveruserkey;
+  }
+
+  config.pushoverdevice = doc["pushoverdevice"].as<String>();
+  if (config.pushoverdevice == "null") {
+    initiatesave = true;
+    config.pushoverdevice = default_pushoverdevice;
+  }
+
   file.close();
 
   if (initiatesave) {
@@ -208,6 +233,10 @@ void saveConfiguration(const char *filename, const Config &config) {
   doc["ntptimezone"] = config.ntptimezone;
   doc["ntpsynctime"] = config.ntpsynctime;
   doc["ntpwaitsynctime"] = config.ntpwaitsynctime;
+  doc["pushoverenable"] = config.pushoverenable;
+  doc["pushoverapptoken"] = config.pushoverapptoken;
+  doc["pushoveruserkey"] = config.pushoveruserkey;
+  doc["pushoverdevice"] = config.pushoverdevice;
 
   // Serialize JSON to file
   if (serializeJson(doc, file) == 0) {
@@ -260,4 +289,8 @@ void printConfig() {
   Serial.print("         ntptimezone: "); Serial.println(config.ntptimezone);
   Serial.print("         ntpsynctime: "); Serial.println(config.ntpsynctime);
   Serial.print("     ntpwaitsynctime: "); Serial.println(config.ntpwaitsynctime);
+  Serial.print("      pushoverenable: "); Serial.println(config.pushoverenable);
+  Serial.print("    pushoverapptoken: "); Serial.println(config.pushoverapptoken);
+  Serial.print("     pushoveruserkey: "); Serial.println(config.pushoveruserkey);
+  Serial.print("      pushoverdevice: "); Serial.println(config.pushoverdevice);
 }
