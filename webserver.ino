@@ -73,6 +73,15 @@ void configureWebServer() {
     }
   });
 
+  server->on("/pushover", HTTP_GET, [](AsyncWebServerRequest * request) {
+    if (checkUserWebAuth(request)) {
+      pushoverSend("Current Temp = " + getESPTemp() + "C");
+      request->send(200, "text/html", "sent pushover message");
+    } else {
+      return request->requestAuthentication();
+    }
+  });
+
   server->on("/fullconfig", HTTP_GET, [](AsyncWebServerRequest * request) {
     if (checkUserWebAuth(request)) {
       request->send(200, "application/json", getConfig());

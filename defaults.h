@@ -16,3 +16,6 @@ const String default_telegrafserver = "192.168.10.21";
 const int default_telegrafserverport = 8094;
 const int default_telegrafshiptime = 30;
 const int default_tempchecktime = 10;
+const String default_potoken = "xxx";
+const String default_pouser = "yyy";
+const String default_podevice = "mi8lite";
