@@ -31,10 +31,21 @@ const char index_html[] PROGMEM = R"rawliteral(
   <button onclick="updateHeader()">Refresh Information</button>
   <button onclick="scani2c()">Scan I2C Devices</button>
   <button onclick="displayWifi()">Display WiFi Networks</button>
+  <button onclick="refreshNTP()">Refresh NTP</button>
   </p>
   <p id="detailsheader"></p>
   <p id="details"></p>
 <script>
+function refreshNTP() {
+  document.getElementById("status").innerHTML = "Refreshing NTP ...";
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "/ntprefresh", true);
+  xhr.send();
+  setTimeout(function(){
+    document.getElementById("status").innerHTML = "Refreshed NTP";
+    document.getElementById("time").innerHTML = xhr.responseText;
+  },5000);
+}
 function displayWifi() {
   document.getElementById("status").innerHTML = "Scanning for WiFi Networks ...";
   document.getElementById("detailsheader").innerHTML = "<h3>Available WiFi Networks<h3>";

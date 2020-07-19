@@ -140,6 +140,20 @@ void configureWebServer() {
     }
   });
 
+  server->on("/ntprefresh", HTTP_GET, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    if (checkUserWebAuth(request)) {
+      logmessage += " Auth: Success";
+      syslogSend(logmessage);
+      updateNTP();
+      request->send(200, "text/html", printTime());
+    } else {
+      logmessage += " Auth: Failed";
+      syslogSend(logmessage);
+      return request->requestAuthentication();
+    }
+  });
+
   server->on("/reboot", HTTP_GET, [](AsyncWebServerRequest * request) {
     if (checkUserWebAuth(request)) {
       request->send(200, "text/html", reboot_html);
