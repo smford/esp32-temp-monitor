@@ -4,6 +4,11 @@ const char index_html[] PROGMEM = R"rawliteral(
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta charset="UTF-8">
+  <style>
+  td.top {
+    vertical-align: text-top;
+  }
+  </style>
 </head>
 <body>
   <p>
@@ -14,6 +19,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   <tr><td>ESP32 Temp:</td><td><span id="cputemp">%TEMP%</span> C</td></tr>
   <tr><td>Time:</td><td><span id="time">%TIME%</span></td></tr>
   <tr><td>Status:</td><td><span id="status"> </span></td></tr>
+  <tr><td class='top'>LCD:</td><td><span id="lcddisplay">%LCDDISPLAY%</span></td></tr>
   </table>
   </p>
   <p>
@@ -22,6 +28,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   <button onclick="listFilesButton()">List Files</button>
   <button onclick="showUploadButtonFancy()">Upload File</button>
   <button onclick="displayEditConfig()">Display/Edit Config</button>
+  <button onclick="updateHeader()">Refresh Information</button>
   </p>
   <p id="detailsheader"></p>
   <p id="details"></p>
@@ -36,6 +43,7 @@ function updateHeader() {
   document.getElementById("usedspiffs").innerHTML = mydata["UsedSPIFFS"];
   document.getElementById("totalspiffs").innerHTML = mydata["TotalSPIFFS"];
   document.getElementById("cputemp").innerHTML = mydata["CPUTemp"];
+  document.getElementById("lcddisplay").innerHTML = mydata["LCD"];
 }
 function submitForm(oFormElement) {
   var xhr = new XMLHttpRequest();

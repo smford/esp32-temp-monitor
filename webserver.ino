@@ -12,6 +12,16 @@ String processor(const String& var) {
     return FIRMWARE_VERSION;
   }
 
+  if (var == "LCDDISPLAY") {
+    String lcdTable;
+    lcdTable += "<table>";
+    for (int i = 0; i < LCDROWS; i++) {
+      lcdTable += "<tr><td>Line " + String(i + 1) + ":</td><td>" + lcdDisplay[i] + "</td></tr>";
+    }
+    lcdTable += "</table>";
+    return lcdTable;
+  }
+
   if (var == "FREESPIFFS") {
     return humanReadableSize((SPIFFS.totalBytes() - SPIFFS.usedBytes()));
   }

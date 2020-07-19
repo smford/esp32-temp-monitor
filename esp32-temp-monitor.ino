@@ -12,7 +12,9 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.0.5"
+#define FIRMWARE_VERSION "v0.0.6"
+#define LCDWIDTH 16
+#define LCDROWS 2
 
 // configuration structure
 struct Config {
@@ -55,6 +57,7 @@ const char *validConfSettings[] = {"hostname", "appname",
 
 // function defaults
 String listFiles(bool ishtml = false);
+void printLCD(String line1 = "", String line2 = "", String line3 = "", String line4 = "");
 
 // variables
 const char *filename = "/config.txt";   // filename where configuration is stored
@@ -87,6 +90,7 @@ ezDebugLevel_t NTPDEBUG = ERROR; // NONE, ERROR, INFO, DEBUG
 
 // LCD
 LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
+String lcdDisplay[LCDROWS];
 
 void setup() {
   Serial.begin(115200);
@@ -314,16 +318,32 @@ void syslogSend(String message) {
 }
 
 void setupLCD() {
-  lcd.begin(16, 2);
+  lcd.begin(LCDWIDTH, LCDROWS);
   lcd.home();
 }
 
-void printLCD(String line1, String line2) {
+void printLCD(String line1, String line2, String line3, String line4) {
   lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print(line1);
-  lcd.setCursor (0, 1);
-  lcd.print(line2);
+  if (LCDROWS >= 1) {
+    lcdDisplay[0] = line1;
+    lcd.setCursor(0, 0);
+    lcd.print(lcdDisplay[0]);
+  }
+  if (LCDROWS >= 2) {
+    lcdDisplay[1] = line2;
+    lcd.setCursor(0, 1);
+    lcd.print(lcdDisplay[1]);
+  }
+  if (LCDROWS >= 3) {
+    lcdDisplay[2] = line3;
+    lcd.setCursor(0, 2);
+    lcd.print(lcdDisplay[2]);
+  }
+  if (LCDROWS == 4) {
+    lcdDisplay[3] = line4;
+    lcd.setCursor(0, 3);
+    lcd.print(lcdDisplay[3]);
+  }
 }
 
 String getConfig() {
@@ -359,13 +379,20 @@ String getConfig() {
 }
 
 String shortStatus() {
-  StaticJsonDocument<200> shortStatusDoc;
+  StaticJsonDocument<400> shortStatusDoc;
   shortStatusDoc["Hostname"] = config.hostname;
   shortStatusDoc["FreeSPIFFS"] = humanReadableSize((SPIFFS.totalBytes() - SPIFFS.usedBytes()));
   shortStatusDoc["UsedSPIFFS"] = humanReadableSize(SPIFFS.usedBytes());
   shortStatusDoc["TotalSPIFFS"] = humanReadableSize(SPIFFS.totalBytes());
   shortStatusDoc["CPUTemp"] = getESPTemp();
   shortStatusDoc["Time"] = printTime();
+  String lcdTable;
+    lcdTable += "<table>";
+    for (int i = 0; i < 4; i++) {
+      lcdTable += "<tr><td>Line " + String(i + 1) + ":</td><td>" + lcdDisplay[i] + "</td></tr>";
+    }
+  lcdTable += "</table>";
+  shortStatusDoc["LCD"] = lcdTable;
   String shortStatus = "";
   serializeJson(shortStatusDoc, shortStatus);
   return shortStatus;
