@@ -13,6 +13,11 @@
 - when doing http client, check return code
 - add multiple temp probes
 - resize json doc handling sizes
+- fix boot time
+- make time formatting consistent and to a normal standard
+- rename syslogSend to logSend
+- add /fullstatus
+- if a setting is changed and requires a reboot, notify user
 
 # Done
 - after calling /set redirect back to / with a message displayed in status
