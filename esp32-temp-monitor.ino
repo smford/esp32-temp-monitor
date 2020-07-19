@@ -12,7 +12,7 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.0.7"
+#define FIRMWARE_VERSION "v0.0.7.1"
 #define LCDWIDTH 16
 #define LCDROWS 2
 
@@ -182,9 +182,6 @@ void setup() {
 
   syslogSend("Starting Webserver ...");
   server->begin();
-
-  Wire.begin();
-  i2cScanner();
 
   bootTime = printTime();
   syslogSend("Booted at: " + bootTime);
