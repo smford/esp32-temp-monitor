@@ -101,6 +101,12 @@ void configureWebServer() {
     request->send(200, "text/plain", printTime());
   });
 
+  server->on("/health", HTTP_GET, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    syslogSend(logmessage);
+    request->send(200, "text/plain", "OK");
+  });
+
   server->on("/scanwifi", HTTP_GET, [](AsyncWebServerRequest * request) {
     String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
     if (checkUserWebAuth(request)) {
