@@ -9,10 +9,12 @@
 #include <LiquidCrystal_I2C.h>
 #include <ArduinoJson.h>
 #include <ezTime.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.0.12"
+#define FIRMWARE_VERSION "v0.1"
 #define LCDWIDTH 16
 #define LCDROWS 2
 
@@ -45,6 +47,7 @@ struct Config {
   String pushoverdevice;     // pushover device name
 };
 
+const int oneWireBus = 4;
 const char *validConfSettings[] = {"hostname", "appname",
                                    "ssid", "wifipassword",
                                    "httpuser", "httppassword", "httpapitoken",
@@ -91,6 +94,16 @@ ezDebugLevel_t NTPDEBUG = ERROR; // NONE, ERROR, INFO, DEBUG
 // LCD
 LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
 String lcdDisplay[LCDROWS];
+
+// OneWire
+OneWire oneWire(oneWireBus);
+
+// DS18B20
+DallasTemperature sensors(&oneWire);
+//DallasTemperature(sensors(&oneWire), uint8_t);
+//DallasTemperature(sensors(&oneWire*, uint8_t)
+//DallasTemperature(oneWire*, uint8_t)
+DeviceAddress insideThermometer, outsideThermometer;
 
 void setup() {
   Serial.begin(115200);
@@ -191,6 +204,29 @@ void setup() {
 
   printLCD("Ready", "Getting Temp");
 
+  sensors.begin();
+  Serial.print("Found "); Serial.print(sensors.getDeviceCount(), DEC); Serial.println(" devices.");
+  Serial.println("Probe1 Temp:" + String(sensors.getTempCByIndex(0)));
+  // search for devices on the bus and assign based on an index.
+  if (!sensors.getAddress(insideThermometer, 0)) Serial.println("Unable to find address for Device 0");
+  if (!sensors.getAddress(outsideThermometer, 1)) Serial.println("Unable to find address for Device 1");
+
+  // show the addresses we found on the bus
+  Serial.print("Device 0 Address: ");
+  printAddress(insideThermometer);
+  Serial.println();
+
+  Serial.print("Device 0 Alarms: ");
+  printAlarms(insideThermometer);
+  Serial.println();
+
+  Serial.print("Device 1 Address: ");
+  printAddress(outsideThermometer);
+  Serial.println();
+
+  Serial.print("Device 1 Alarms: ");
+  printAlarms(outsideThermometer);
+  Serial.println();
 }
 
 void loop() {
@@ -213,6 +249,7 @@ void loop() {
   if ((millis() - tempCheckLastRunTime) > (config.tempchecktime * 1000)) {
     printLCD("CPUTemp", getESPTemp() + " C");
     //printLCD(getESPTemp() + " C", "");
+    Serial.println("Probe1 Temp:" + String(sensors.getTempCByIndex(0)));
     tempCheckLastRunTime = millis();
   }
 
