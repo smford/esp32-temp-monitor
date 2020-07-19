@@ -29,10 +29,27 @@ const char index_html[] PROGMEM = R"rawliteral(
   <button onclick="showUploadButtonFancy()">Upload File</button>
   <button onclick="displayEditConfig()">Display/Edit Config</button>
   <button onclick="updateHeader()">Refresh Information</button>
+  <button onclick="scani2c()">Scan I2C Devices</button>
   </p>
   <p id="detailsheader"></p>
   <p id="details"></p>
 <script>
+function scani2c() {
+  document.getElementById("status").innerHTML = "Scanning for I2C Devices";
+  document.getElementById("detailsheader").innerHTML = "<h3>Available I2C Devices<h3>";
+  xmlhttp=new XMLHttpRequest();
+  xmlhttp.open("GET", "/scani2c", false);
+  xmlhttp.send();
+  var mydata = JSON.parse(xmlhttp.responseText);
+  var displaydata = "<table><tr><th align='left'>Int</th><th align='left'>Hex</th><th align='left'>Error</th></tr>";
+  for (var key of Object.keys(mydata)) {
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["int"] + "</td><td align='left'>" + mydata[key]["hex"] + "</td><td align='left'>" + mydata[key]["error"] + "</td></tr>";
+  }
+  displaydata = displaydata + "</table>";
+  document.getElementById("status").innerHTML = "I2C Devices Scanned";
+  document.getElementById("detailsheader").innerHTML = "<h3>I2C Devices<h3>";
+  document.getElementById("details").innerHTML = displaydata;
+}
 function updateHeader() {
   xmlhttp=new XMLHttpRequest();
   xmlhttp.open("GET", "/shortstatus", false);
