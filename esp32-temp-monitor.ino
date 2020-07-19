@@ -12,7 +12,7 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.0.7.1"
+#define FIRMWARE_VERSION "v0.0.8"
 #define LCDWIDTH 16
 #define LCDROWS 2
 
@@ -182,6 +182,9 @@ void setup() {
 
   syslogSend("Starting Webserver ...");
   server->begin();
+
+  // need to do a scan here, else first scan will fail.  Bug in scanNetworks
+  WiFi.scanNetworks(true, true);
 
   bootTime = printTime();
   syslogSend("Booted at: " + bootTime);

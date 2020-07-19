@@ -30,10 +30,26 @@ const char index_html[] PROGMEM = R"rawliteral(
   <button onclick="displayEditConfig()">Display/Edit Config</button>
   <button onclick="updateHeader()">Refresh Information</button>
   <button onclick="scani2c()">Scan I2C Devices</button>
+  <button onclick="displayWifi()">Display WiFi Networks</button>
   </p>
   <p id="detailsheader"></p>
   <p id="details"></p>
 <script>
+function displayWifi() {
+  document.getElementById("status").innerHTML = "Scanning for WiFi Networks ...";
+  document.getElementById("detailsheader").innerHTML = "<h3>Available WiFi Networks<h3>";
+  xmlhttp=new XMLHttpRequest();
+  xmlhttp.open("GET", "/scanwifi", false);
+  xmlhttp.send();
+  var mydata = JSON.parse(xmlhttp.responseText);
+  var displaydata = "<table><tr><th align='left'>SSID</th><th align='left'>BSSID</th><th align='left'>RSSI</th><th align='left'>Channel</th><th align='left'>Secure</th></tr>";
+  for (var key of Object.keys(mydata)) {
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["ssid"] + "</td><td align='left'>" + mydata[key]["bssid"] + "</td><td align='left'>" + mydata[key]["rssi"] + "</td><td align='left'>" + mydata[key]["channel"] + "</td><td align='left'>"+ mydata[key]["secure"] + "</td></tr>";
+  }
+  displaydata = displaydata + "</table>";
+  document.getElementById("status").innerHTML = "WiFi Networks Scanned";
+  document.getElementById("details").innerHTML = displaydata;
+}
 function scani2c() {
   document.getElementById("status").innerHTML = "Scanning for I2C Devices";
   document.getElementById("detailsheader").innerHTML = "<h3>Available I2C Devices<h3>";
