@@ -93,6 +93,14 @@ void configureWebServer() {
     }
   });
 
+  // used for checking whether time is sync
+  server->on("/time", HTTP_GET, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    Serial.println(logmessage);
+    syslog.log(logmessage);
+    request->send(200, "text/plain", printTime());
+  });
+
   server->on("/scanwifi", HTTP_GET, [](AsyncWebServerRequest * request) {
     String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
     if (checkUserWebAuth(request)) {
