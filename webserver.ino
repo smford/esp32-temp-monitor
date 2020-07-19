@@ -82,13 +82,11 @@ void configureWebServer() {
     String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
     if (checkUserWebAuth(request)) {
       logmessage += " Auth: Success";
-      Serial.println(logmessage);
-      syslog.log(logmessage);
+      syslogSend(logmessage);
       request->send(200, "application/json", i2cScanner());
     } else {
       logmessage += " Auth: Failed";
-      Serial.println(logmessage);
-      syslog.log(logmessage);
+      syslogSend(logmessage);
       return request->requestAuthentication();
     }
   });
@@ -96,8 +94,7 @@ void configureWebServer() {
   // used for checking whether time is sync
   server->on("/time", HTTP_GET, [](AsyncWebServerRequest * request) {
     String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
-    Serial.println(logmessage);
-    syslog.log(logmessage);
+    syslogSend(logmessage);
     request->send(200, "text/plain", printTime());
   });
 
@@ -111,8 +108,7 @@ void configureWebServer() {
     String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
     if (checkUserWebAuth(request)) {
       logmessage += " Auth: Success";
-      Serial.println(logmessage);
-      syslog.log(logmessage);
+      syslogSend(logmessage);
       String json = "[";
       int n = WiFi.scanComplete();
       if (n == -2) {
@@ -139,8 +135,7 @@ void configureWebServer() {
       json = String();
     } else {
       logmessage += " Auth: Failed";
-      Serial.println(logmessage);
-      syslog.log(logmessage);
+      syslogSend(logmessage);
       return request->requestAuthentication();
     }
   });
