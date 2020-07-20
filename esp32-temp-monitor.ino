@@ -14,7 +14,7 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.1.1"
+#define FIRMWARE_VERSION "v0.1.2"
 #define LCDWIDTH 16
 #define LCDROWS 2
 
@@ -230,15 +230,29 @@ void setup() {
     Serial.println();
   */
 
-  sensors.setWaitForConversion(false);
+  /* sensors.setWaitForConversion(false);
   sensors.requestTemperatures();
 
   pinMode(oneWireBus, OUTPUT);
   digitalWrite(oneWireBus, HIGH);
   delay(750);
-
+  */
+  fixSetupDS18B20();
   Serial.println(sensors.getTempCByIndex(0));
 
+}
+
+void fixSetupDS18B20() {
+  sensors.setWaitForConversion(false);
+  //sensors.requestTemperatures();
+
+  pinMode(oneWireBus, OUTPUT);
+  digitalWrite(oneWireBus, HIGH);
+  delay(750);
+}
+
+void fixDS18B20() {
+  sensors.requestTemperatures();
 }
 
 void loop() {
@@ -255,15 +269,18 @@ void loop() {
     shipMetric("cputemp", getESPTemp());
     shipMetric("wifisignal", String(WiFi.RSSI()));
     shipMetric("telegrafdelay", String(millis() - telegrafLastRunTime));
+    fixDS18B20();
+    shipMetric("probe1temp", String(sensors.getTempCByIndex(0)));
     telegrafLastRunTime = millis();
   }
 
   if ((millis() - tempCheckLastRunTime) > (config.tempchecktime * 1000)) {
     //sensors.setWaitForConversion(false);
-    sensors.requestTemperatures();
+    //sensors.requestTemperatures();
     //pinMode(oneWireBus, OUTPUT);
     //digitalWrite(oneWireBus, HIGH);
     //delay(750);
+    fixDS18B20();
     printLCD("  CPU:" + getESPTemp() + " C", "Probe:" + String(sensors.getTempCByIndex(0)) + " C");
     //printLCD(getESPTemp() + " C", "");
     Serial.println(sensors.getTempCByIndex(0));
