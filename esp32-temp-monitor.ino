@@ -56,7 +56,8 @@ const char *validConfSettings[] = {"hostname", "appname",
                                    "telegrafenable", "telegrafserver", "telegrafserverport", "telegrafshiptime",
                                    "tempchecktime",
                                    "ntpserver", "ntptimezone", "ntpsynctime", "ntpwaitsynctime",
-                                   "pushoverenable", "pushoverapptoken", "pushoveruserkey", "pushoverdevice"};
+                                   "pushoverenable", "pushoverapptoken", "pushoveruserkey", "pushoverdevice"
+                                  };
 
 // function defaults
 String listFiles(bool ishtml = false);
@@ -458,10 +459,10 @@ String shortStatus() {
   shortStatusDoc["CPUTemp"] = getESPTemp();
   shortStatusDoc["Time"] = printTime();
   String lcdTable;
-    lcdTable += "<table>";
-    for (int i = 0; i < 4; i++) {
-      lcdTable += "<tr><td>Line " + String(i + 1) + ":</td><td>" + lcdDisplay[i] + "</td></tr>";
-    }
+  lcdTable += "<table>";
+  for (int i = 0; i < 4; i++) {
+    lcdTable += "<tr><td>Line " + String(i + 1) + ":</td><td>" + lcdDisplay[i] + "</td></tr>";
+  }
   lcdTable += "</table>";
   shortStatusDoc["LCD"] = lcdTable;
   String shortStatus = "";
