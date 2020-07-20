@@ -243,19 +243,6 @@ void setup() {
 
 }
 
-void fixSetupDS18B20() {
-  sensors.setWaitForConversion(false);
-  //sensors.requestTemperatures();
-
-  pinMode(oneWireBus, OUTPUT);
-  digitalWrite(oneWireBus, HIGH);
-  delay(750);
-}
-
-void fixDS18B20() {
-  sensors.requestTemperatures();
-}
-
 void loop() {
   // display ntp sync events on serial
   events();

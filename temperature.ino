@@ -4,6 +4,18 @@
 // http://www.esp32learning.com/code/esp32-and-ds18b20-temperature-sensor-example.php
 // https://i2.wp.com/www.esp32learning.com/wp-content/uploads/2017/11/esp32-and-ds18b20_bb.png?w=792
 
+void fixSetupDS18B20() {
+  // needed because of https://github.com/milesburton/Arduino-Temperature-Control-Library/issues/113
+  sensors.setWaitForConversion(false);
+  pinMode(oneWireBus, OUTPUT);
+  digitalWrite(oneWireBus, HIGH);
+  delay(750);
+}
+
+void fixDS18B20() {
+  sensors.requestTemperatures();
+}
+
 // function to print a device address
 void printAddress(DeviceAddress deviceAddress)
 {
