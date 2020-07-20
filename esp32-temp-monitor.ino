@@ -14,7 +14,7 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.1"
+#define FIRMWARE_VERSION "v0.1.1"
 #define LCDWIDTH 16
 #define LCDROWS 2
 
@@ -209,7 +209,7 @@ void setup() {
   Serial.println("Probe1 Temp:" + String(sensors.getTempCByIndex(0)));
   // search for devices on the bus and assign based on an index.
   if (!sensors.getAddress(insideThermometer, 0)) Serial.println("Unable to find address for Device 0");
-  if (!sensors.getAddress(outsideThermometer, 1)) Serial.println("Unable to find address for Device 1");
+  //if (!sensors.getAddress(outsideThermometer, 1)) Serial.println("Unable to find address for Device 1");
 
   // show the addresses we found on the bus
   Serial.print("Device 0 Address: ");
@@ -220,13 +220,25 @@ void setup() {
   printAlarms(insideThermometer);
   Serial.println();
 
-  Serial.print("Device 1 Address: ");
-  printAddress(outsideThermometer);
-  Serial.println();
+  /*
+    Serial.print("Device 1 Address: ");
+    printAddress(outsideThermometer);
+    Serial.println();
 
-  Serial.print("Device 1 Alarms: ");
-  printAlarms(outsideThermometer);
-  Serial.println();
+    Serial.print("Device 1 Alarms: ");
+    printAlarms(outsideThermometer);
+    Serial.println();
+  */
+
+  sensors.setWaitForConversion(false);
+  sensors.requestTemperatures();
+
+  pinMode(oneWireBus, OUTPUT);
+  digitalWrite(oneWireBus, HIGH);
+  delay(750);
+
+  Serial.println(sensors.getTempCByIndex(0));
+
 }
 
 void loop() {
@@ -247,9 +259,14 @@ void loop() {
   }
 
   if ((millis() - tempCheckLastRunTime) > (config.tempchecktime * 1000)) {
-    printLCD("CPUTemp", getESPTemp() + " C");
+    //sensors.setWaitForConversion(false);
+    sensors.requestTemperatures();
+    //pinMode(oneWireBus, OUTPUT);
+    //digitalWrite(oneWireBus, HIGH);
+    //delay(750);
+    printLCD("  CPU:" + getESPTemp() + " C", "Probe:" + String(sensors.getTempCByIndex(0)) + " C");
     //printLCD(getESPTemp() + " C", "");
-    Serial.println("Probe1 Temp:" + String(sensors.getTempCByIndex(0)));
+    Serial.println(sensors.getTempCByIndex(0));
     tempCheckLastRunTime = millis();
   }
 
