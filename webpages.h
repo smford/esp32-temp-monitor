@@ -16,7 +16,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   <tr><td><span id="hostname">%HOSTNAME%</span></td></tr>
   <tr><td>Firmware:</td><td>%FIRMWARE%</td></tr>
   <tr><td>Storage:</td><td>Free: <span id="freespiffs">%FREESPIFFS%</span> | Used: <span id="usedspiffs">%USEDSPIFFS%</span> | Total: <span id="totalspiffs">%TOTALSPIFFS%</span></td></tr>
-  <tr><td>ESP32 Temp:</td><td><span id="cputemp">%TEMP%</span> C</td></tr>
+  <tr><td>ESP32 Temp:</td><td><span id="cputemp">%TEMP%</span></td></tr>
   <tr><td>Time:</td><td><span id="time">%TIME%</span></td></tr>
   <tr><td>Status:</td><td><span id="status"> </span></td></tr>
   <tr><td class='top'>LCD:</td><td><span id="lcddisplay">%LCDDISPLAY%</span></td></tr>
@@ -86,6 +86,7 @@ function updateHeader() {
   document.getElementById("freespiffs").innerHTML = mydata["FreeSPIFFS"];
   document.getElementById("usedspiffs").innerHTML = mydata["UsedSPIFFS"];
   document.getElementById("totalspiffs").innerHTML = mydata["TotalSPIFFS"];
+  document.getElementById("time").innerHTML = mydata["Time"];
   document.getElementById("cputemp").innerHTML = mydata["CPUTemp"];
   document.getElementById("lcddisplay").innerHTML = mydata["LCD"];
 }
