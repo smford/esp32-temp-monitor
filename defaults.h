@@ -24,3 +24,4 @@ const bool default_pushoverenable = true;
 const String default_pushoverapptoken = "xxx";
 const String default_pushoveruserkey = "yyy";
 const String default_pushoverdevice = "mi8lite";
+const bool default_metric = true;

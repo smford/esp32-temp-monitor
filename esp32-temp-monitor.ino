@@ -14,37 +14,58 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.1.2"
+#define FIRMWARE_VERSION "v0.1.2.2"
 #define LCDWIDTH 16
 #define LCDROWS 2
 
 // configuration structure
 struct Config {
-  String hostname;           // hostname of device
-  String appname;            // application name
-  String ssid;               // wifi ssid
-  String wifipassword;       // wifi password
-  String httpuser;           // username to access web admin
-  String httppassword;       // password to access web admin
-  String httpapitoken;       // api token used to authenticate against the device
-  int webserverporthttp;     // http port number for web admin
-  int webserverporthttps;    // https port number for the web admin
-  bool syslogenable;         // enable syslog
-  String syslogserver;       // hostname or ip of the syslog server
-  int syslogport;            // sylog port number
-  bool telegrafenable;       // turns on or off shipping of metrics to telegraf
-  String telegrafserver;     // hostname or ip of telegraf server
-  int telegrafserverport;    // port number for telegraf
-  int telegrafshiptime;      // how often in seconds we should ship metrics to telegraf
-  int tempchecktime;         // how often in seconds to check temperature
-  String ntpserver;          // hostname or ip of the ntpserver
-  String ntptimezone;        // ntp time zone to use, use the TZ database name from https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-  int ntpsynctime;           // how frequently to schedule the regular syncing of ntp time
-  int ntpwaitsynctime;       // upon boot, wait these many seconds to get ntp time from server
-  bool pushoverenable;       // enable pushover
-  String pushoverapptoken;   // pushover app token
-  String pushoveruserkey;    // pushover user key
-  String pushoverdevice;     // pushover device name
+  String hostname;             // hostname of device
+  String appname;              // application name
+  String ssid;                 // wifi ssid
+  String wifipassword;         // wifi password
+  String httpuser;             // username to access web admin
+  String httppassword;         // password to access web admin
+  String httpapitoken;         // api token used to authenticate against the device
+  int webserverporthttp;       // http port number for web admin
+  int webserverporthttps;      // https port number for the web admin
+  bool syslogenable;           // enable syslog
+  String syslogserver;         // hostname or ip of the syslog server
+  int syslogport;              // sylog port number
+  bool telegrafenable;         // turns on or off shipping of metrics to telegraf
+  String telegrafserver;       // hostname or ip of telegraf server
+  int telegrafserverport;      // port number for telegraf
+  int telegrafshiptime;        // how often in seconds we should ship metrics to telegraf
+  int tempchecktime;           // how often in seconds to check temperature
+  String ntpserver;            // hostname or ip of the ntpserver
+  String ntptimezone;          // ntp time zone to use, use the TZ database name from https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+  int ntpsynctime;             // how frequently to schedule the regular syncing of ntp time
+  int ntpwaitsynctime;         // upon boot, wait these many seconds to get ntp time from server
+  bool pushoverenable;         // enable pushover
+  String pushoverapptoken;     // pushover app token
+  String pushoveruserkey;      // pushover user key
+  String pushoverdevice;       // pushover device name
+  bool metric;                 // y = celcius, n = fahrenheit
+};
+
+struct AlarmAction {
+  bool pushoverenable;         // send a pushover message?
+  bool relayenable;            // fire a relay?
+  int relaypin;                // pin that fires the relay
+  bool servoenable;            // control a servo?
+  int servopin;                // pin that servo is on
+  int servoposition;           // position to move servo to
+};
+
+struct TempProbe {
+  String name;                 // name of the probe
+  String location;             // location of probe
+  String address;              // device address
+  float highalarm;             // temp that will fire a high alarm
+  float lowalarm;              // temp that will fire a low alarm
+  AlarmAction highalarmaction; // action that fires when high alarm occurs
+  AlarmAction lowalarmaction;  // action that fires when a low alarm occurs
+  AlarmAction normalaction;    // what to do when temp is between high and low
 };
 
 const int oneWireBus = 4;
@@ -56,12 +77,15 @@ const char *validConfSettings[] = {"hostname", "appname",
                                    "telegrafenable", "telegrafserver", "telegrafserverport", "telegrafshiptime",
                                    "tempchecktime",
                                    "ntpserver", "ntptimezone", "ntpsynctime", "ntpwaitsynctime",
-                                   "pushoverenable", "pushoverapptoken", "pushoveruserkey", "pushoverdevice"
+                                   "pushoverenable", "pushoverapptoken", "pushoveruserkey", "pushoverdevice",
+                                   "metric"
                                   };
 
 // function defaults
 String listFiles(bool ishtml = false);
 void printLCD(String line1 = "", String line2 = "", String line3 = "", String line4 = "");
+String printTempProbe(int probeNumber = 0, bool printScale = true);
+String getESPTemp(bool printScale = true);
 
 // variables
 const char *filename = "/config.txt";   // filename where configuration is stored
@@ -207,7 +231,10 @@ void setup() {
 
   sensors.begin();
   Serial.print("Found "); Serial.print(sensors.getDeviceCount(), DEC); Serial.println(" devices.");
-  Serial.println("Probe1 Temp:" + String(sensors.getTempCByIndex(0)));
+
+  //Serial.println("Probe1 Temp:" + String(sensors.getTempCByIndex(0)));
+
+  Serial.println("Probe1 Temp:" + printTempProbe(0));
   // search for devices on the bus and assign based on an index.
   if (!sensors.getAddress(insideThermometer, 0)) Serial.println("Unable to find address for Device 0");
   //if (!sensors.getAddress(outsideThermometer, 1)) Serial.println("Unable to find address for Device 1");
@@ -232,11 +259,11 @@ void setup() {
   */
 
   /* sensors.setWaitForConversion(false);
-  sensors.requestTemperatures();
+    sensors.requestTemperatures();
 
-  pinMode(oneWireBus, OUTPUT);
-  digitalWrite(oneWireBus, HIGH);
-  delay(750);
+    pinMode(oneWireBus, OUTPUT);
+    digitalWrite(oneWireBus, HIGH);
+    delay(750);
   */
   fixSetupDS18B20();
   Serial.println(sensors.getTempCByIndex(0));
@@ -254,11 +281,12 @@ void loop() {
 
   // do nothing and return if trying to ship metrics too fast
   if ((millis() - telegrafLastRunTime) > (config.telegrafshiptime * 1000)) {
-    shipMetric("cputemp", getESPTemp());
+    shipMetric("cputemp", getESPTemp(false));
     shipMetric("wifisignal", String(WiFi.RSSI()));
     shipMetric("telegrafdelay", String(millis() - telegrafLastRunTime));
     fixDS18B20();
-    shipMetric("probe1temp", String(sensors.getTempCByIndex(0)));
+    //shipMetric("probe1temp", String(sensors.getTempCByIndex(0)));
+    shipMetric("probe1temp", printTempProbe(0, false));
     telegrafLastRunTime = millis();
   }
 
@@ -269,9 +297,10 @@ void loop() {
     //digitalWrite(oneWireBus, HIGH);
     //delay(750);
     fixDS18B20();
-    printLCD("  CPU:" + getESPTemp() + " C", "Probe:" + String(sensors.getTempCByIndex(0)) + " C");
+    //printLCD("  CPU:" + getESPTemp() + " C", "Probe:" + String(sensors.getTempCByIndex(0)) + " C");
+    printLCD("  CPU:" + getESPTemp(), "Probe:" + printTempProbe(0));
     //printLCD(getESPTemp() + " C", "");
-    Serial.println(sensors.getTempCByIndex(0));
+    //Serial.println(sensors.getTempCByIndex(0));
     tempCheckLastRunTime = millis();
   }
 
@@ -313,8 +342,20 @@ String i2cScanner() {
   return returnText;
 }
 
-String getESPTemp() {
-  return String((temprature_sens_read() - 32) / 1.8);
+String getESPTemp(bool printScale) {
+  String returnText;
+  if (config.metric) {
+    returnText += String((temprature_sens_read() - 32) / 1.8);
+    if (printScale) {
+      returnText += " C";
+    }
+  } else {
+    returnText += String(temprature_sens_read());
+    if (printScale) {
+      returnText += " F";
+    }
+  }
+  return returnText;
 }
 
 void rebootESP(String message) {
@@ -432,6 +473,7 @@ String getConfig() {
   configDoc["PushoverAppToken"] = config.pushoverapptoken;
   configDoc["PushoverUserKey"] = config.pushoveruserkey;
   configDoc["PushoverDevice"] = config.pushoverdevice;
+  configDoc["Metric"] = config.metric;
   String fullConfig = "";
   serializeJson(configDoc, fullConfig);
   return fullConfig;
@@ -447,7 +489,7 @@ String shortStatus() {
   shortStatusDoc["Time"] = printTime();
   String lcdTable;
   lcdTable += "<table>";
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < LCDROWS; i++) {
     lcdTable += "<tr><td>Line " + String(i + 1) + ":</td><td>" + lcdDisplay[i] + "</td></tr>";
   }
   lcdTable += "</table>";
@@ -489,4 +531,20 @@ String getTimeStatus() {
       myTimeStatus = "Unknown";
   }
   return myTimeStatus;
+}
+
+String printTempProbe(int probeNumber, bool printScale) {
+  String returnText;
+  if (config.metric) {
+    returnText += String(sensors.getTempCByIndex(0));
+    if (printScale) {
+      returnText += " C";
+    }
+  } else {
+    returnText += String(sensors.getTempFByIndex(0));
+    if (printScale) {
+      returnText += " F";
+    }
+  }
+  return returnText;
 }

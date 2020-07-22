@@ -486,6 +486,29 @@ void configureWebServer() {
         initiatesave = true;
         request->send(200, "text/plain", "Updated: PushoverDevice=" + config.pushoverdevice);
       }
+      else if (strcmp(myParam, "metric") == 0) {
+        if (strcmp(myValue, "true") == 0) {
+          if (config.metric) {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "true" + " To:true");
+          } else {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "false" + " To:true");
+          }
+          config.metric = true;
+          initiatesave = true;
+          request->send(200, "text/plain", "Updated: Metric=true");
+        } if (strcmp(myValue, "false") == 0) {
+          if (config.metric) {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "true" + " To:false");
+          } else {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "false" + " To:false");
+          }
+          config.metric = false;
+          initiatesave = true;
+          request->send(200, "text/plain", "Updated: Metric=false");
+        } else {
+          request->send(200, "text/plain", "ERROR: Invalid Metric value=" + String(myValue));
+        }
+      }
       //=====================
       else {
         syslogSend("ERROR: no valid config options supplied");

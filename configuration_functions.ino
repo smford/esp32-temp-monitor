@@ -187,6 +187,13 @@ void loadConfiguration(const char *filename, Config &config) {
     config.pushoverdevice = default_pushoverdevice;
   }
 
+  if (doc.containsKey("metric")) {
+    config.metric = doc["metric"].as<bool>();
+  } else {
+    initiatesave = true;
+    config.metric = default_metric;
+  }
+
   file.close();
 
   if (initiatesave) {
@@ -237,6 +244,7 @@ void saveConfiguration(const char *filename, const Config &config) {
   doc["pushoverapptoken"] = config.pushoverapptoken;
   doc["pushoveruserkey"] = config.pushoveruserkey;
   doc["pushoverdevice"] = config.pushoverdevice;
+  doc["metric"] = config.metric;
 
   // Serialize JSON to file
   if (serializeJson(doc, file) == 0) {
@@ -293,4 +301,6 @@ void printConfig() {
   Serial.print("    pushoverapptoken: "); Serial.println(config.pushoverapptoken);
   Serial.print("     pushoveruserkey: "); Serial.println(config.pushoveruserkey);
   Serial.print("      pushoverdevice: "); Serial.println(config.pushoverdevice);
+  Serial.print("              metric: "); Serial.println(config.metric);
+
 }
