@@ -14,7 +14,7 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.1.2.3"
+#define FIRMWARE_VERSION "v0.1.2.4"
 #define LCDWIDTH 16
 #define LCDROWS 2
 
@@ -223,8 +223,11 @@ void setup() {
 
   // need to do a scan here, else first scan will fail.  Bug in scanNetworks
   WiFi.scanNetworks(true, true);
-
   bootTime = printTime();
+
+  // loop until ntp time is received and update bootTime
+  while (checkAndFixNTP() == false) {}
+
   syslogSend("Booted at: " + bootTime);
 
   printLCD("Ready", "Getting Temp");
@@ -547,4 +550,17 @@ String printTempProbe(int probeNumber, bool printScale) {
     }
   }
   return returnText;
+}
+
+// returns true once time is fixed
+bool checkAndFixNTP() {
+  if (bootTime.startsWith("Thursday, 01-Jan-1970")) {
+    syslogSend("NTP Time not set, forcing an update");
+    delay(config.ntpwaitsynctime * 1000);
+    updateNTP();
+    bootTime = printTime();
+    return false;
+  } else {
+    return true;
+  }
 }
