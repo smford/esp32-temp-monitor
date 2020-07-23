@@ -15,7 +15,7 @@ Work is in progress
 - ESP32
 - Relay
 - LCD Screen
-- Temperature probe
+- Multiple DS18B20 Temperature probes
 - LED
 
 ## Features

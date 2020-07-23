@@ -15,7 +15,7 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.1.2.7"
+#define FIRMWARE_VERSION "v0.1.2.8"
 #define LCDWIDTH 16
 #define LCDROWS 2
 
@@ -217,8 +217,13 @@ void setup() {
   Serial.print(config.ntptimezone + ": "); Serial.println(printTime());
 
   bootTime = printTime();
-  // loop until ntp time is received and update bootTime
-  while (checkAndFixNTP() == false) {}
+  // loop 5 times until ntp time is received and update bootTime,
+  // if after 5 forced attempts, move on rather than sitting here forever,
+  // once ntp can be retrieved, time for the device will be updated, however
+  // bootime will still be recorded as "Thursday, 01-Jan-1970 00:00:00 GMT"
+  for (int i = 0; i < 5; i++) {
+    if (checkAndFixNTP() == true) { break; }
+  }
 
   syslogSend("Configuring Webserver ...");
   server = new AsyncWebServer(config.webserverporthttp);
