@@ -154,6 +154,45 @@ void configureWebServer() {
     }
   });
 
+  server->on("/backlight", HTTP_GET, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    if (checkUserWebAuth(request)) {
+      String returnText;
+      int returnCode;
+      if (request->hasParam("state")) {
+        const char* selectState = request->getParam("state")->value().c_str();
+
+        logmessage += " Auth: Success";
+
+        if (strcmp(selectState, "on") == 0) {
+          lcd.backlight();
+          returnText = "LCD Backlight On";
+          logmessage = logmessage + " " + returnText;
+          returnCode = 200;
+        } else if (strcmp(selectState, "off") == 0) {
+          lcd.noBacklight();
+          returnText = "LCD Backlight Off";
+          logmessage = logmessage + " " + returnText;
+          returnCode = 200;
+        } else {
+          returnText = "ERROR: bad state param supplied";
+          logmessage = logmessage + " " + returnText;
+          returnCode = 400;
+        }
+      } else {
+        returnText = "ERROR: state param required";
+        logmessage = logmessage + " " + returnText;
+        returnCode = 400;
+      }
+      syslogSend(logmessage);
+      request->send(returnCode, "text/html", returnText);
+    } else {
+      logmessage += " Auth: Failed";
+      syslogSend(logmessage);
+      return request->requestAuthentication();
+    }
+  });
+
   server->on("/reboot", HTTP_GET, [](AsyncWebServerRequest * request) {
     if (checkUserWebAuth(request)) {
       request->send(200, "text/html", reboot_html);

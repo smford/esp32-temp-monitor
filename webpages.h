@@ -32,6 +32,8 @@ const char index_html[] PROGMEM = R"rawliteral(
   <button onclick="scani2c()">Scan I2C Devices</button>
   <button onclick="displayWifi()">Display WiFi Networks</button>
   <button onclick="refreshNTP()">Refresh NTP</button>
+  <button onclick="changeBacklightButton('on')">LCD Backlight On</button>
+  <button onclick="changeBacklightButton('off')">LCD Backlight Off</button>
   </p>
   <p id="detailsheader"></p>
   <p id="details"></p>
@@ -45,6 +47,13 @@ function refreshNTP() {
     document.getElementById("status").innerHTML = "Refreshed NTP";
     document.getElementById("time").innerHTML = xhr.responseText;
   },5000);
+}
+function changeBacklightButton(state) {
+  document.getElementById("status").innerHTML = "Turning LCD Backlight " . state;
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "/backlight?state=" + state, true);
+  xhr.send();
+  document.getElementById("status").innerHTML = "LCD Backlight " + state;
 }
 function displayWifi() {
   document.getElementById("status").innerHTML = "Scanning for WiFi Networks ...";
