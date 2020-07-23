@@ -26,6 +26,18 @@ void printAddress(DeviceAddress deviceAddress)
   }
 }
 
+String giveStringDeviceAddress(DeviceAddress deviceAddress)
+{
+  String returnText;
+  for (uint8_t i = 0; i < 8; i++)
+  {
+    //if (deviceAddress[i] < 16) Serial.print("0");
+    //Serial.print(deviceAddress[i], HEX);
+    returnText += String(deviceAddress[i], HEX);
+  }
+  return returnText;
+}
+
 // function to print the temperature for a device
 void printTemperature(DeviceAddress deviceAddress)
 {
@@ -50,6 +62,29 @@ void printAlarms(uint8_t deviceAddress[])
   Serial.print("C/");
   Serial.print(DallasTemperature::toFahrenheit(temp));
   Serial.print("F");
+}
+
+void printAlarmsNew(uint8_t deviceAddress[])
+{
+  char temp;
+  temp = sensors.getHighAlarmTemp(deviceAddress);
+  Serial.print("High Alarm: ");
+  if (config.metric) {
+    Serial.print(temp, DEC);
+    Serial.print("C");
+  } else {
+    Serial.print(DallasTemperature::toFahrenheit(temp));
+    Serial.print("F");
+  }
+  Serial.print(" | Low Alarm: ");
+  temp = sensors.getLowAlarmTemp(deviceAddress);
+  if (config.metric) {
+    Serial.print(temp, DEC);
+    Serial.print("C");
+  } else {
+    Serial.print(DallasTemperature::toFahrenheit(temp));
+    Serial.print("F");
+  }
 }
 
 // main function to print information about a device

@@ -14,7 +14,7 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.1.2.4"
+#define FIRMWARE_VERSION "v0.1.2.5"
 #define LCDWIDTH 16
 #define LCDROWS 2
 
@@ -60,13 +60,17 @@ struct AlarmAction {
 struct TempProbe {
   String name;                 // name of the probe
   String location;             // location of probe
-  String address;              // device address
+  DeviceAddress address;       // device address
+  int resolution;              // temperature resolution: The resolution of the DS18B20 is configurable (9, 10, 11, or 12 bits), with 12-bit readings the factory default state. This equates to a temperature resolution of 0.5°C, 0.25°C, 0.125°C, or 0.0625°C
   float highalarm;             // temp that will fire a high alarm
   float lowalarm;              // temp that will fire a low alarm
-  AlarmAction highalarmaction; // action that fires when high alarm occurs
-  AlarmAction lowalarmaction;  // action that fires when a low alarm occurs
-  AlarmAction normalaction;    // what to do when temp is between high and low
+  //AlarmAction highalarmaction; // action that fires when high alarm occurs
+  //AlarmAction lowalarmaction;  // action that fires when a low alarm occurs
+  //AlarmAction normalaction;    // what to do when temp is between high and low
 };
+
+TempProbe *myTempProbes;
+int numberOfTempProbes;
 
 const int oneWireBus = 4;
 const char *validConfSettings[] = {"hostname", "appname",
@@ -125,9 +129,6 @@ OneWire oneWire(oneWireBus);
 
 // DS18B20
 DallasTemperature sensors(&oneWire);
-//DallasTemperature(sensors(&oneWire), uint8_t);
-//DallasTemperature(sensors(&oneWire*, uint8_t)
-//DallasTemperature(oneWire*, uint8_t)
 DeviceAddress insideThermometer, outsideThermometer;
 
 void setup() {
@@ -214,6 +215,10 @@ void setup() {
   myTZ.setLocation(config.ntptimezone);
   Serial.print(config.ntptimezone + ": "); Serial.println(printTime());
 
+  bootTime = printTime();
+  // loop until ntp time is received and update bootTime
+  while (checkAndFixNTP() == false) {}
+
   syslogSend("Configuring Webserver ...");
   server = new AsyncWebServer(config.webserverporthttp);
   configureWebServer();
@@ -223,33 +228,60 @@ void setup() {
 
   // need to do a scan here, else first scan will fail.  Bug in scanNetworks
   WiFi.scanNetworks(true, true);
-  bootTime = printTime();
-
-  // loop until ntp time is received and update bootTime
-  while (checkAndFixNTP() == false) {}
 
   syslogSend("Booted at: " + bootTime);
 
   printLCD("Ready", "Getting Temp");
 
+  Serial.println("Initialising Temp Sensors");
   sensors.begin();
-  Serial.print("Found "); Serial.print(sensors.getDeviceCount(), DEC); Serial.println(" devices.");
 
-  //Serial.println("Probe1 Temp:" + String(sensors.getTempCByIndex(0)));
+  numberOfTempProbes = sensors.getDeviceCount();
+  syslogSend("Found " + String(numberOfTempProbes) + " temperature probes");
 
-  Serial.println("Probe1 Temp:" + printTempProbe(0));
+  myTempProbes = new TempProbe[numberOfTempProbes];
+
+  // need to reset_search before each scan
+  oneWire.reset_search();
+
+  // print all found devices and save into myTempProbes array
+  for (int i = 0; i < numberOfTempProbes; i++) {
+    myTempProbes[i].name = String(i);
+    if (!oneWire.search(myTempProbes[i].address)) {
+      Serial.print("Unable to find address for "); Serial.println(i);
+    }
+    myTempProbes[i].resolution = sensors.getResolution(myTempProbes[0].address);
+    Serial.println("Probe " + myTempProbes[i].name + " Address:" + giveStringDeviceAddress(myTempProbes[i].address) + "Resolution:" + String(myTempProbes[i].resolution));
+
+    // why is printAddress return in caps?
+    //printAddress(myTempProbes[i].address); Serial.println();
+  }
+
+  Serial.println("BEFORE");
+  Serial.print("      Temp 0:"); printTemperature(myTempProbes[0].address); Serial.println();
+  Serial.print("   Address 0:"); printAddress(myTempProbes[0].address); Serial.println();
+  Serial.print("    Alarms 0:"); printAlarmsNew(myTempProbes[0].address); Serial.println();
+  Serial.print("Resolution 0:"); Serial.print(sensors.getResolution(myTempProbes[0].address), DEC); Serial.println();
+  sensors.setResolution(myTempProbes[0].address, 12);
+  Serial.println("AFTER 12");
+  Serial.print("      Temp 0:"); printTemperature(myTempProbes[0].address); Serial.println();
+  Serial.print("   Address 0:"); printAddress(myTempProbes[0].address); Serial.println();
+  Serial.print("    Alarms 0:"); printAlarmsNew(myTempProbes[0].address); Serial.println();
+  Serial.print("Resolution 0:"); Serial.print(sensors.getResolution(myTempProbes[0].address), DEC); Serial.println();
+
+  //Serial.println("Probe1 Temp:" + printTempProbe(0));
   // search for devices on the bus and assign based on an index.
-  if (!sensors.getAddress(insideThermometer, 0)) Serial.println("Unable to find address for Device 0");
+  //if (!sensors.getAddress(insideThermometer, 0)) Serial.println("Unable to find address for Device 0");
   //if (!sensors.getAddress(outsideThermometer, 1)) Serial.println("Unable to find address for Device 1");
 
   // show the addresses we found on the bus
-  Serial.print("Device 0 Address: ");
-  printAddress(insideThermometer);
-  Serial.println();
+  //Serial.print("Device 0 Address: ");
+  //printAddress(insideThermometer);
+  //Serial.println();
 
-  Serial.print("Device 0 Alarms: ");
-  printAlarms(insideThermometer);
-  Serial.println();
+  //Serial.print("Device 0 Alarms: ");
+  //printAlarms(insideThermometer);
+  //Serial.println();
 
   /*
     Serial.print("Device 1 Address: ");
@@ -269,7 +301,7 @@ void setup() {
     delay(750);
   */
   fixSetupDS18B20();
-  Serial.println(sensors.getTempCByIndex(0));
+  //Serial.println(sensors.getTempCByIndex(0));
 
 }
 
