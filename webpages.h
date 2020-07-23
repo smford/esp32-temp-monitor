@@ -154,9 +154,9 @@ function logoutButton() {
 }
 function rebootButton() {
   document.getElementById("status").innerHTML = "Invoking Reboot ...";
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", "/reboot", true);
-  xhr.send();
+  //var xhr = new XMLHttpRequest();
+  //xhr.open("GET", "/reboot", true);
+  //xhr.send();
   window.open("/reboot","_self");
 }
 function listFilesButton() {
