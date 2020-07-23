@@ -30,6 +30,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   <button onclick="displayEditConfig()">Display/Edit Config</button>
   <button onclick="updateHeader()">Refresh Information</button>
   <button onclick="scani2c()">Scan I2C Devices</button>
+  <button onclick="scanProbes()">Scan DS18B20 Temp Probes</button>
   <button onclick="displayWifi()">Display WiFi Networks</button>
   <button onclick="refreshNTP()">Refresh NTP</button>
   <button onclick="changeBacklightButton('on')">LCD Backlight On</button>
@@ -72,7 +73,6 @@ function displayWifi() {
 }
 function scani2c() {
   document.getElementById("status").innerHTML = "Scanning for I2C Devices";
-  document.getElementById("detailsheader").innerHTML = "<h3>Available I2C Devices<h3>";
   xmlhttp=new XMLHttpRequest();
   xmlhttp.open("GET", "/scani2c", false);
   xmlhttp.send();
@@ -83,7 +83,22 @@ function scani2c() {
   }
   displaydata = displaydata + "</table>";
   document.getElementById("status").innerHTML = "I2C Devices Scanned";
-  document.getElementById("detailsheader").innerHTML = "<h3>I2C Devices<h3>";
+  document.getElementById("detailsheader").innerHTML = "<h3>Found I2C Devices<h3>";
+  document.getElementById("details").innerHTML = displaydata;
+}
+function scanProbes() {
+  document.getElementById("status").innerHTML = "Scanning for DS18B20 Temperature Probes";
+  xmlhttp=new XMLHttpRequest();
+  xmlhttp.open("GET", "/scanprobes", false);
+  xmlhttp.send();
+  var mydata = JSON.parse(xmlhttp.responseText);
+  var displaydata = "<table><tr><th align='left'>Number</th><th align='left'>Address</th><th align='left'>Bit Res</th><th align='left'>Low Alarm</th><th align='left'>High Alarm</th></tr>";
+  for (var key of Object.keys(mydata)) {
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>" + mydata[key]["address"] + "</td><td align='left'>" + mydata[key]["resolution"] + "</td><td align='left'>" + mydata[key]["lowalarm"] + "</td><td align='left'>" + mydata[key]["highalarm"] + "</td></tr>";
+  }
+  displaydata = displaydata + "</table>";
+  document.getElementById("status").innerHTML = "DS18B20 Temperature Probes Scanned";
+  document.getElementById("detailsheader").innerHTML = "<h3>Found DS18B20 Temperature Probes<h3>";
   document.getElementById("details").innerHTML = displaydata;
 }
 function updateHeader() {

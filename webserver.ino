@@ -61,7 +61,7 @@ void configureWebServer() {
   server->on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
     // not using checkUserWebAuth here because this page is not presented via api
     if (!request->authenticate(config.httpuser.c_str(), config.httppassword.c_str())) {
-      syslogSend("Client:" + request->client()->remoteIP().toString() + " " + request->url() + " Auth:Failed, Requesting Authentication");
+      syslogSend("Client:" + request->client()->remoteIP().toString() + " " + request->url() + " Auth: Failed, Requesting Authentication");
       return request->requestAuthentication();
     }
 
@@ -74,7 +74,7 @@ void configureWebServer() {
     }
     */
 
-    syslogSend("Client:" + request->client()->remoteIP().toString() + + " " + request->url() + " Auth:Success");
+    syslogSend("Client:" + request->client()->remoteIP().toString() + + " " + request->url() + " Auth: Success");
     request->send_P(200, "text/html", index_html, processor);
   });
 
@@ -84,6 +84,19 @@ void configureWebServer() {
       logmessage += " Auth: Success";
       syslogSend(logmessage);
       request->send(200, "application/json", i2cScanner());
+    } else {
+      logmessage += " Auth: Failed";
+      syslogSend(logmessage);
+      return request->requestAuthentication();
+    }
+  });
+
+  server->on("/scanprobes", HTTP_GET, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    if (checkUserWebAuth(request)) {
+      logmessage += " Auth: Success";
+      syslogSend(logmessage);
+      request->send(200, "application/json", probeScanner());
     } else {
       logmessage += " Auth: Failed";
       syslogSend(logmessage);
