@@ -15,7 +15,7 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.1.2.9"
+#define FIRMWARE_VERSION "v0.1.2.10"
 #define LCDWIDTH 16
 #define LCDROWS 2
 
@@ -635,6 +635,32 @@ String probeScanner() {
     returnText += "}";
     i++;
   }
+
+  //===============
+  // used to simulate a second probe being found
+  oneWire.reset_search();
+
+  while (oneWire.search(foundDevice)) {
+    if (returnText.length() > 1) returnText += ",";
+    returnText += "{";
+    returnText += "\"number\":" + String(i);
+    returnText += ",\"address\":\"" + giveStringDeviceAddress(foundDevice) + "\"";
+    returnText += ",\"resolution\":" + String(sensors.getResolution(foundDevice), DEC);
+    alarmLow = sensors.getLowAlarmTemp(foundDevice);
+    alarmHigh = sensors.getHighAlarmTemp(foundDevice);
+
+    if (config.metric) {
+      returnText += ",\"lowalarm\":\"" + String(alarmLow, DEC) + " C" + "\"";
+      returnText += ",\"highalarm\":\"" + String(alarmHigh, DEC) + " C" + "\"";
+    } else {
+      returnText += ",\"lowalarm\":\"" + String(roundf(DallasTemperature::toFahrenheit(alarmLow) * 100) / 100) + " F" + "\"";
+      returnText += ",\"highalarm\":\"" + String(roundf(DallasTemperature::toFahrenheit(alarmHigh) * 100) / 100) + " F" + "\"";
+    }
+
+    returnText += "}";
+    i++;
+  }
+  //===============
   returnText += "]";
   return returnText;
 }

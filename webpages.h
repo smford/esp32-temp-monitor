@@ -31,6 +31,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   <button onclick="updateHeader()">Refresh Information</button>
   <button onclick="scani2c()">Scan I2C Devices</button>
   <button onclick="scanProbes()">Scan DS18B20 Temp Probes</button>
+  <button onclick="configureProbesButton()">Configure DS18B20 Temp Probes</button>
   <button onclick="displayWifi()">Display WiFi Networks</button>
   <button onclick="refreshNTP()">Refresh NTP</button>
   <button onclick="changeBacklightButton('on')">LCD Backlight On</button>
@@ -240,6 +241,10 @@ function errorHandler(event) {
 function abortHandler(event) {
   _("status").innerHTML = "Upload Aborted";
 }
+function configureProbesButton() {
+  document.getElementById("status").innerHTML = "Configuring Probes";
+  window.open("/configureprobes","_self");
+}
 </script>
 </body>
 </html>
@@ -281,6 +286,58 @@ const char reboot_html[] PROGMEM = R"rawliteral(
     }
   }
   countdown();
+</script>
+</body>
+</html>
+)rawliteral";
+
+const char configureprobes_html[] PROGMEM = R"rawliteral(
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+</head>
+<body>
+  <p><button onclick="editProbes()">Scan DS18B20 Temp Probes</button></p>
+  <p id="status"></p>
+  <p id="detailsheader"></p>
+  <p id="details"></p>
+<script>
+function submitForm(oFormElement) {
+  var xhr = new XMLHttpRequest();
+  xhr.onload = function() {
+    document.getElementById("status").innerHTML = xhr.responseText;
+    editProbes();
+  }
+  xhr.open(oFormElement.method, oFormElement.getAttribute("action"));
+  xhr.send(new FormData(oFormElement));
+  return false;
+}
+function editProbes() {
+  document.getElementById("status").innerHTML = "Scanning for DS18B20 Temperature Probes";
+  xmlhttp=new XMLHttpRequest();
+  xmlhttp.open("GET", "/scanprobes", false);
+  xmlhttp.send();
+  var mydata = JSON.parse(xmlhttp.responseText);
+  var displaydata = "";
+  for (var key of Object.keys(mydata)) {
+    displaydata = displaydata + "<table><tr><th align='left'>ID</th><th align='left'>Setting</th><th align='left'>Current</th><th align='left'>New</th></tr>";
+    //displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>" + mydata[key]["address"] + "</td><td align='left'>" + mydata[key]["resolution"] + "</td><td align='left'>" + mydata[key]["lowalarm"] + "</td><td align='left'>" + mydata[key]["highalarm"] + "</td></tr>";
+
+    //displaydata = displaydata + "<tr><td align='left'>" + countprobes + "<td align='left'>" + key + "</td><td align='left'>" + mydata[key] + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/setprobe'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
+
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Address</td><td align='left'>" + mydata[key]["address"] + "</td><td></td></tr>";
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Bit Resolution</td><td align='left'>" + mydata[key]["resolution"] + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/setprobe'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form></td></tr>";
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Low Alarm</td><td align='left'>" + mydata[key]["lowalarm"] + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/setprobe'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form></td></tr>";
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>High Alarm</td><td align='left'>" + mydata[key]["highalarm"] + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/setprobe'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form></td></tr>";
+
+    displaydata = displaydata + "</table>";
+  }
+  document.getElementById("status").innerHTML = "DS18B20 Temperature Probes Scanned";
+  document.getElementById("detailsheader").innerHTML = "<h3>Found DS18B20 Temperature Probes<h3>";
+  document.getElementById("details").innerHTML = displaydata;
+}
 </script>
 </body>
 </html>
