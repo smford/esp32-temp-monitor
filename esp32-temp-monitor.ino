@@ -15,7 +15,7 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.1.2.10"
+#define FIRMWARE_VERSION "v0.1.2.11"
 #define LCDWIDTH 16
 #define LCDROWS 2
 
@@ -663,4 +663,17 @@ String probeScanner() {
   //===============
   returnText += "]";
   return returnText;
+}
+
+void printMyTempProbes() {
+  for (int i = 0; i < numberOfTempProbes; i++) {
+    Serial.println("==============");
+    Serial.println(String(i) + "       name:" + myTempProbes[i].name);
+    Serial.println(String(i) + "   location:" + myTempProbes[i].location);
+    Serial.println(String(i) + "    address:" + giveStringDeviceAddress(myTempProbes[i].address));
+    Serial.println(String(i) + " resolution:" + myTempProbes[i].resolution);
+    Serial.println(String(i) + "   lowalarm:" + myTempProbes[i].lowalarm);
+    Serial.println(String(i) + "  highalarm:" + myTempProbes[i].highalarm);
+    //Serial.println(i + " :" + myTempProbes[i].);
+  }
 }

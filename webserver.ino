@@ -66,12 +66,11 @@ void configureWebServer() {
     }
 
     /*
-    int headers = request->headers();
-    int i;
-    for (i = 0; i < headers; i++) {
-      AsyncWebHeader* h = request->getHeader(i);
-      Serial.printf("HEADER[%s]: %s\n", h->name().c_str(), h->value().c_str());
-    }
+      int headers = request->headers();
+      for (int i = 0; i < headers; i++) {
+        AsyncWebHeader* h = request->getHeader(i);
+        Serial.printf("HEADER[%s]: %s\n", h->name().c_str(), h->value().c_str());
+      }
     */
 
     syslogSend("Client:" + request->client()->remoteIP().toString() + + " " + request->url() + " Auth: Success");
@@ -249,7 +248,74 @@ void configureWebServer() {
       return request->requestAuthentication();
     }
   });
+  //============
+  server->on("/setprobe", HTTP_POST, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    int numberOfParams = request->params();
 
+    Serial.println("Param number:" + String(numberOfParams));
+    for (int i = 0; i < numberOfParams; i++) {
+      AsyncWebParameter* p = request->getParam(i);
+      Serial.print("Param name: ");
+      Serial.println(p->name());
+      Serial.print("Param value: ");
+      Serial.println(p->value());
+      Serial.println("------");
+    }
+
+    if (numberOfParams < 2) {
+      request->send(200, "text/plain", "ERROR: Too few params supplied");
+      return;
+    }
+
+    if (numberOfParams > 2) {
+      request->send(200, "text/plain", "ERROR: Too many params supplied");
+      return;
+    }
+
+    const char *probeID;
+    const char *myParam;
+    const char *myValue;
+
+    if (strcmp(request->getParam(0)->name().c_str(), "probe") == 0) {
+      probeID = request->getParam(0)->value().c_str();
+      myParam = request->getParam(1)->name().c_str();
+      myValue = request->getParam(1)->value().c_str();
+    } else if (strcmp(request->getParam(1)->name().c_str(), "probe") == 0) {
+      probeID = request->getParam(1)->value().c_str();
+      myParam = request->getParam(0)->name().c_str();
+      myValue = request->getParam(0)->value().c_str();
+    } else {
+      request->send(200, "text/plain", "ERROR: No probe supplied");
+      return;
+    }
+
+    if ((atoi(probeID) < 0) || (atoi(probeID) > numberOfTempProbes)) {
+      request->send(200, "text/plain", "ERROR: Invalid probe supplied");
+      return;
+    }
+
+    //myTempProbes[atoi(probeID)].name = String(myValue);
+    //Serial.println("myTempProbes[" + String(probeID) + "]=" + myTempProbes[atoi(probeID)].name);
+
+    if (strcmp(myParam, "name") == 0) {
+      syslogSend("Setting Change:" + String(myParam) + " From:" + myTempProbes[atoi(probeID)].name + " To:" + String(myValue));
+      myTempProbes[atoi(probeID)].name = String(myValue);
+      //initiatesave = true;
+      request->send(200, "text/plain", "Updated: Probe " + String(probeID) + " name=" + myTempProbes[atoi(probeID)].name);
+    } else if (strcmp(myParam, "location") == 0) {
+      syslogSend("Setting Change:" + String(myParam) + " From:" + myTempProbes[atoi(probeID)].location + " To:" + String(myValue));
+      myTempProbes[atoi(probeID)].location = String(myValue);
+      //initiatesave = true;
+      request->send(200, "text/plain", "Updated: Probe " + String(probeID) + " location=" + myTempProbes[atoi(probeID)].location);
+    }
+
+    printMyTempProbes();
+
+    String returnText = "probeID=" + String(probeID) + "  myParam=" + String(myParam) + "  myValue=" + String(myValue);
+    request->send(200, "text/plain", returnText);
+  });
+  //============
   server->on("/set", HTTP_POST, [](AsyncWebServerRequest * request) {
     String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
 
@@ -666,7 +732,7 @@ bool checkUserWebAuth(AsyncWebServerRequest * request) {
   if (isAuthenticated == false) {
     syslogSend(logmessage + " Failed Authentication");
   }
-  
+
   return isAuthenticated;
 }
 

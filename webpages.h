@@ -301,13 +301,14 @@ const char configureprobes_html[] PROGMEM = R"rawliteral(
 <body>
   <p><button onclick="editProbes()">Scan DS18B20 Temp Probes</button></p>
   <p id="status"></p>
+  <p id="status2"></p>
   <p id="detailsheader"></p>
   <p id="details"></p>
 <script>
 function submitForm(oFormElement) {
   var xhr = new XMLHttpRequest();
   xhr.onload = function() {
-    document.getElementById("status").innerHTML = xhr.responseText;
+    document.getElementById("status2").innerHTML = xhr.responseText;
     editProbes();
   }
   xhr.open(oFormElement.method, oFormElement.getAttribute("action"));
@@ -328,9 +329,11 @@ function editProbes() {
     //displaydata = displaydata + "<tr><td align='left'>" + countprobes + "<td align='left'>" + key + "</td><td align='left'>" + mydata[key] + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/setprobe'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form>" + "</td></tr>";
 
     displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Address</td><td align='left'>" + mydata[key]["address"] + "</td><td></td></tr>";
-    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Bit Resolution</td><td align='left'>" + mydata[key]["resolution"] + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/setprobe'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form></td></tr>";
-    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Low Alarm</td><td align='left'>" + mydata[key]["lowalarm"] + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/setprobe'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form></td></tr>";
-    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>High Alarm</td><td align='left'>" + mydata[key]["highalarm"] + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/setprobe'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form></td></tr>";
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Name</td><td align='left'>" + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/setprobe?probe=" + mydata[key]["number"] + "'><input type='text' name='name'>" + "<input type='submit' value='Submit'></form></td></tr>";
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Location</td><td align='left'>" + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/setprobe?probe=" + mydata[key]["number"] + "'><input type='text' name='location'>" + "<input type='submit' value='Submit'></form></td></tr>";
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Bit Resolution</td><td align='left'>" + mydata[key]["resolution"] + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/setprobe?probe=" + mydata[key]["number"] + "'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form></td></tr>";
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Low Alarm</td><td align='left'>" + mydata[key]["lowalarm"] + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/setprobe?probe=" + mydata[key]["number"] + "'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form></td></tr>";
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>High Alarm</td><td align='left'>" + mydata[key]["highalarm"] + "</td><td align='left'><form method='POST' onsubmit='return submitForm(this);' action='/setprobe?probe=" + mydata[key]["number"] + "'><input type='text' name='" + key.toLowerCase() + "'>" + "<input type='submit' value='Submit'></form></td></tr>";
 
     displaydata = displaydata + "</table>";
   }
