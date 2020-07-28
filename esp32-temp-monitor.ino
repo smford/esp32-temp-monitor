@@ -15,7 +15,7 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.1.2.13"
+#define FIRMWARE_VERSION "v0.1.2.14"
 #define LCDWIDTH 16
 #define LCDROWS 2
 

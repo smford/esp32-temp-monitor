@@ -88,16 +88,6 @@ void configureWebServer() {
     request->send(200, "text/html", "printed");
   });
 
-  server->on("/configureprobes", HTTP_GET, [](AsyncWebServerRequest * request) {
-    // not using checkUserWebAuth here because this page is not presented via api
-    if (!request->authenticate(config.httpuser.c_str(), config.httppassword.c_str())) {
-      syslogSend("Client:" + request->client()->remoteIP().toString() + " " + request->url() + " Auth: Failed, Requesting Authentication");
-      return request->requestAuthentication();
-    }
-    syslogSend("Client:" + request->client()->remoteIP().toString() + + " " + request->url() + " Auth: Success");
-    request->send_P(200, "text/html", configureprobes_html, processor);
-  });
-
   server->on("/scani2c", HTTP_GET, [](AsyncWebServerRequest * request) {
     String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
     if (checkUserWebAuth(request)) {
