@@ -165,6 +165,16 @@ void setup() {
   numberOfTempProbes = sensors.getDeviceCount();
   syslogSend("Found " + String(numberOfTempProbes) + " DS18B20 temperature probes upon boot");
 
+  DeviceAddress wtf;
+
+  sensors.getAddress(wtf, 0);
+
+  Serial.println("=====");
+  Serial.print("DEC:"); printAddressDec(wtf); Serial.println();
+  Serial.print("HEX:"); printAddress(wtf); Serial.println();
+  Serial.println("=====");
+  
+
   myTempProbes = new TempProbe[numberOfTempProbes];
 
   Serial.println("Loaded " + String(loadConfigurationProbes(probesfilename)) + " DS18B20 Probes from " + String(probesfilename));

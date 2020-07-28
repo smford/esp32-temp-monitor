@@ -413,22 +413,68 @@ int loadConfigurationProbes(const char *filename) {
 
     Serial.print("temp="); Serial.println(temp);
     // https://forum.arduino.cc/index.php?topic=205352.msg1511851#msg1511851
+    /*
     int addrv[8];
-    sscanf(temp, "%x,%x,%x,%x,%x,%x,%x,%x", &addrv[0], &addrv[1], &addrv[2], &addrv[3], &addrv[4], &addrv[5], &addrv[6], &addrv[7]);  // parse the 8 ascii hex bytes in 8 ints
+    sscanf(temp, "%x%x%x%x%x%x%x%x", &addrv[0], &addrv[1], &addrv[2], &addrv[3], &addrv[4], &addrv[5], &addrv[6], &addrv[7]);  // parse the 8 ascii hex bytes in 8 ints
 
     for(int j = 0; j < 8; j++) {
       myTempProbes[i].address[j] = (__typeof__(myTempProbes[i].address[0])) addrv[j]; //fill in device address bytes using a cast
     }
+    */
+    
+    //uint64_t val;
+    //sscanf(temp, "%X", val);
+    //myTempProbes[i].address = (DeviceAddress) val;
 
     Serial.println("after copying in address:" + giveStringDeviceAddress(myTempProbes[i].address));
+    
+    const char* temp2 = "28,ff,9b,a3,61,15,03,51";
+    byte addrv[8];
+    DeviceAddress someshit;
+    sscanf(temp2, "%x,%x,%x,%x,%x,%x,%x,%x", &addrv[0], &addrv[1], &addrv[2], &addrv[3], &addrv[4], &addrv[5], &addrv[6], &addrv[7]);
+    for(int j = 0; j < 8; j++) {
+      //myTempProbes[i].address[j] = (__typeof__(myTempProbes[i].address[0])) addrv[j]; //fill in device address bytes using a cast
+      someshit[j] = (uint8_t) addrv[j];
+    }
+
+    Serial.println("someshit=====");
+    Serial.print("DEC:"); printAddressDec(someshit); Serial.println();
+    Serial.print("HEX:"); printAddress(someshit); Serial.println();
+    Serial.println("=====");
+
+    const char* temp3 = "28ff9ba361150351";
+    byte addrv2[8];
+    DeviceAddress someshit2;
+    sscanf(temp3, "%2x%2x%2x%2x%2x%2x%2x%2x", &addrv2[0], &addrv2[1], &addrv2[2], &addrv2[3], &addrv2[4], &addrv2[5], &addrv2[6], &addrv2[7]);
+    for(int j = 0; j < 8; j++) {
+      //myTempProbes[i].address[j] = (__typeof__(myTempProbes[i].address[0])) addrv[j]; //fill in device address bytes using a cast
+      someshit2[j] = (uint8_t) addrv2[j];
+    }
+
+    Serial.println("someshit2=====");
+    Serial.print("DEC:"); printAddressDec(someshit2); Serial.println();
+    Serial.print("HEX:"); printAddress(someshit2); Serial.println();
+    Serial.println("=====");
+
+    byte addrv3[8];
+    DeviceAddress someshit3;
+    sscanf(doc["Probes"][i]["address"], "%2x%2x%2x%2x%2x%2x%2x%2x", &addrv3[0], &addrv3[1], &addrv3[2], &addrv3[3], &addrv3[4], &addrv3[5], &addrv3[6], &addrv3[7]);
+    for(int j = 0; j < 8; j++) {
+      someshit3[j] = (uint8_t) addrv3[j];
+    }
+
+    Serial.println("someshit3 from json=====");
+    Serial.print("DEC:"); printAddressDec(someshit3); Serial.println();
+    Serial.print("HEX:"); printAddress(someshit3); Serial.println();
+    Serial.println("=====");
+    
     /*
-    //const char* temp = "28ff9ba36115351";
     for (int j = 0; j < 8; j++) {
       myTempProbes[i].address[j] = temp[j];
       Serial.print(temp[j]); Serial.print("="); Serial.println(myTempProbes[i].address[j]);
     }
     */
-
+    
     //myTempProbes[i].address = doc["Probes"][i]["address"].as<unsigned char>();
     myTempProbes[i].resolution = doc["Probes"][i]["resolution"];
     myTempProbes[i].lowalarm = doc["Probes"][i]["lowalarm"];

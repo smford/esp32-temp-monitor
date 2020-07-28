@@ -17,12 +17,22 @@ void fixDS18B20() {
 }
 
 // function to print a device address
+void printAddressDec(DeviceAddress deviceAddress)
+{
+  for (uint8_t i = 0; i < 8; i++)
+  {
+    if (deviceAddress[i] < 16) Serial.print("0");
+    Serial.print(deviceAddress[i], DEC); Serial.print(",");
+  }
+}
+
+
 void printAddress(DeviceAddress deviceAddress)
 {
   for (uint8_t i = 0; i < 8; i++)
   {
     if (deviceAddress[i] < 16) Serial.print("0");
-    Serial.print(deviceAddress[i], HEX);
+    Serial.print(deviceAddress[i], HEX); Serial.print(",");
   }
 }
 
@@ -31,7 +41,7 @@ String giveStringDeviceAddress(DeviceAddress deviceAddress)
   String returnText;
   for (uint8_t i = 0; i < 8; i++)
   {
-    //if (deviceAddress[i] < 16) Serial.print("0");
+    if (deviceAddress[i] < 16) returnText += "0";
     //Serial.print(deviceAddress[i], HEX);
     returnText += String(deviceAddress[i], HEX);
   }
