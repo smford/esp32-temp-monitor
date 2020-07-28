@@ -77,6 +77,17 @@ void configureWebServer() {
     request->send_P(200, "text/html", index_html, processor);
   });
 
+  server->on("/printprobes", HTTP_GET, [](AsyncWebServerRequest * request) {
+    // not using checkUserWebAuth here because this page is not presented via api
+    if (!request->authenticate(config.httpuser.c_str(), config.httppassword.c_str())) {
+      syslogSend("Client:" + request->client()->remoteIP().toString() + " " + request->url() + " Auth: Failed, Requesting Authentication");
+      return request->requestAuthentication();
+    }
+    syslogSend("Client:" + request->client()->remoteIP().toString() + + " " + request->url() + " Auth: Success");
+    printMyTempProbes();
+    request->send(200, "text/html", "printed");
+  });
+
   server->on("/configureprobes", HTTP_GET, [](AsyncWebServerRequest * request) {
     // not using checkUserWebAuth here because this page is not presented via api
     if (!request->authenticate(config.httpuser.c_str(), config.httppassword.c_str())) {
@@ -106,6 +117,19 @@ void configureWebServer() {
       logmessage += " Auth: Success";
       syslogSend(logmessage);
       request->send(200, "application/json", probeScanner());
+    } else {
+      logmessage += " Auth: Failed";
+      syslogSend(logmessage);
+      return request->requestAuthentication();
+    }
+  });
+
+  server->on("/loadprobes", HTTP_GET, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    if (checkUserWebAuth(request)) {
+      logmessage += " Auth: Success";
+      syslogSend(logmessage);
+      request->send(200, "application/json", displayConfiguredProbes());
     } else {
       logmessage += " Auth: Failed";
       syslogSend(logmessage);
@@ -298,22 +322,84 @@ void configureWebServer() {
     //myTempProbes[atoi(probeID)].name = String(myValue);
     //Serial.println("myTempProbes[" + String(probeID) + "]=" + myTempProbes[atoi(probeID)].name);
 
+    String returnText;
+    bool initiatesave = false;
+
     if (strcmp(myParam, "name") == 0) {
       syslogSend("Setting Change:" + String(myParam) + " From:" + myTempProbes[atoi(probeID)].name + " To:" + String(myValue));
       myTempProbes[atoi(probeID)].name = String(myValue);
-      //initiatesave = true;
-      request->send(200, "text/plain", "Updated: Probe " + String(probeID) + " name=" + myTempProbes[atoi(probeID)].name);
-    } else if (strcmp(myParam, "location") == 0) {
+      initiatesave = true;
+      //request->send(200, "text/plain", "Updated: Probe " + String(probeID) + " name=" + myTempProbes[atoi(probeID)].name);
+      returnText = "Updated: Probe " + String(probeID) + " name=" + myTempProbes[atoi(probeID)].name;
+    }
+    else if (strcmp(myParam, "location") == 0) {
       syslogSend("Setting Change:" + String(myParam) + " From:" + myTempProbes[atoi(probeID)].location + " To:" + String(myValue));
       myTempProbes[atoi(probeID)].location = String(myValue);
-      //initiatesave = true;
-      request->send(200, "text/plain", "Updated: Probe " + String(probeID) + " location=" + myTempProbes[atoi(probeID)].location);
+      initiatesave = true;
+      //request->send(200, "text/plain", "Updated: Probe " + String(probeID) + " location=" + myTempProbes[atoi(probeID)].location);
+      returnText = "Updated: Probe " + String(probeID) + " location=" + myTempProbes[atoi(probeID)].location;
+    }
+    else if (strcmp(myParam, "resolution") == 0) {
+      syslogSend("Setting Change:" + String(myParam) + " From:" + myTempProbes[atoi(probeID)].resolution + " To:" + String(myValue));
+      int newResolution = atoi(myValue);
+      if ((newResolution >= 9) && (newResolution <= 12)) {
+        myTempProbes[atoi(probeID)].resolution = newResolution;
+        initiatesave = true;
+        sensors.setResolution(myTempProbes[atoi(probeID)].address, newResolution);
+        Serial.print("Probe Resolution="); Serial.println(sensors.getResolution(myTempProbes[atoi(probeID)].address), DEC);
+        //request->send(200, "text/plain", "Updated: Probe " + String(probeID) + " resolution=" + myTempProbes[atoi(probeID)].resolution);
+        returnText = "Updated: Probe " + String(probeID) + " resolution=" + myTempProbes[atoi(probeID)].resolution;
+      } else {
+        //request->send(200, "text/plain", "ERROR: Probe " + String(probeID) + " resolution=" + newResolution + " is out of range 9-12");
+        returnText = "ERROR: Probe " + String(probeID) + " resolution=" + newResolution + " is out of range 9-12";
+      }
+    }
+    else if (strcmp(myParam, "lowalarm") == 0) {
+      syslogSend("Setting Change:" + String(myParam) + " From:" + myTempProbes[atoi(probeID)].lowalarm + " To:" + String(myValue));
+      int newAlarm = atoi(myValue);
+      if ((newAlarm >= -55) && (newAlarm <= 125)) {
+        myTempProbes[atoi(probeID)].lowalarm = newAlarm;
+        initiatesave = true;
+        sensors.setLowAlarmTemp(myTempProbes[atoi(probeID)].address, newAlarm);
+        Serial.print("Probe LowAlarm="); Serial.println(sensors.getLowAlarmTemp(myTempProbes[atoi(probeID)].address), DEC);
+        //request->send(200, "text/plain", "Updated: Probe " + String(probeID) + " lowalarm=" + myTempProbes[atoi(probeID)].lowalarm);
+        returnText = "Updated: Probe " + String(probeID) + " lowalarm=" + myTempProbes[atoi(probeID)].lowalarm;
+      } else {
+        //request->send(200, "text/plain", "ERROR: Probe " + String(probeID) + " lowalarm=" + newAlarm + " is out of range -55 to 125");
+        returnText = "ERROR: Probe " + String(probeID) + " lowalarm=" + newAlarm + " is out of range -55 to 125";
+      }
+    }
+    else if (strcmp(myParam, "highalarm") == 0) {
+      syslogSend("Setting Change:" + String(myParam) + " From:" + myTempProbes[atoi(probeID)].highalarm + " To:" + String(myValue));
+      int newAlarm = atoi(myValue);
+      if ((newAlarm >= -55) && (newAlarm <= 125)) {
+        myTempProbes[atoi(probeID)].highalarm = newAlarm;
+        initiatesave = true;
+        sensors.setHighAlarmTemp(myTempProbes[atoi(probeID)].address, newAlarm);
+        Serial.print("Probe HighAlarm="); Serial.println(sensors.getHighAlarmTemp(myTempProbes[atoi(probeID)].address), DEC);
+        //request->send(200, "text/plain", "Updated: Probe " + String(probeID) + " highalarm=" + myTempProbes[atoi(probeID)].highalarm);
+        returnText = "Updated: Probe " + String(probeID) + " highalarm=" + myTempProbes[atoi(probeID)].highalarm;
+      } else {
+        //request->send(200, "text/plain", "ERROR: Probe " + String(probeID) + " highalarm=" + newAlarm + " is out of range -55 to 125");
+        returnText = "ERROR: Probe " + String(probeID) + " highalarm=" + newAlarm + " is out of range -55 to 125";
+      }
+    }
+    //-----------
+    else {
+      syslogSend("ERROR: no valid config options supplied");
+      //request->send(200, "text/plain", "ERROR: No valid setprobes options supplied");
+      returnText = "ERROR: No valid setprobes options supplied";
+    }
+
+    request->send(200, "text/plain", returnText);
+    syslogSend(returnText);
+
+    if (initiatesave) {
+      Serial.println("Default configuration values loaded, saving configuration to " + String(filename));
+      saveConfigurationProbes(probesfilename);
     }
 
     printMyTempProbes();
-
-    String returnText = "probeID=" + String(probeID) + "  myParam=" + String(myParam) + "  myValue=" + String(myValue);
-    request->send(200, "text/plain", returnText);
   });
   //============
   server->on("/set", HTTP_POST, [](AsyncWebServerRequest * request) {

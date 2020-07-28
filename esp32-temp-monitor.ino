@@ -15,7 +15,7 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.1.2.11"
+#define FIRMWARE_VERSION "v0.1.2.13"
 #define LCDWIDTH 16
 #define LCDROWS 2
 
@@ -72,6 +72,7 @@ struct TempProbe {
 
 TempProbe *myTempProbes;
 int numberOfTempProbes;
+int numberOfLoadedTempProbes = 0;
 
 const int oneWireBus = 4;
 const char *validConfSettings[] = {"hostname", "appname",
@@ -93,13 +94,14 @@ String printTempProbe(int probeNumber = 0, bool printScale = true);
 String getESPTemp(bool printScale = true);
 
 // variables
-const char *filename = "/config.txt";   // filename where configuration is stored
-Config config;                          // configuration
-bool shouldReboot = false;              // schedule a reboot
-AsyncWebServer *server;                 // initialise webserver
-unsigned long telegrafLastRunTime = 0;  // keeps track of the time when the last metrics were shipped for influxdb
-unsigned long tempCheckLastRunTime = 0; // keeps track of the time when the last temp check was run
-String bootTime;                        // used to record when the device was booted
+const char *filename = "/config.txt";         // filename where configuration is stored
+const char *probesfilename = "/probes.txt";   // filename where configuration is stored
+Config config;                                // configuration
+bool shouldReboot = false;                    // schedule a reboot
+AsyncWebServer *server;                       // initialise webserver
+unsigned long telegrafLastRunTime = 0;        // keeps track of the time when the last metrics were shipped for influxdb
+unsigned long tempCheckLastRunTime = 0;       // keeps track of the time when the last temp check was run
+String bootTime;                              // used to record when the device was booted
 
 // internal ESP32 temp sensor
 #ifdef __cplusplus
@@ -156,6 +158,16 @@ void setup() {
 
   loadConfiguration(filename, config);
   printConfig();
+
+  Serial.println("Initialising Temp Sensors");
+  sensors.begin();
+
+  numberOfTempProbes = sensors.getDeviceCount();
+  syslogSend("Found " + String(numberOfTempProbes) + " DS18B20 temperature probes upon boot");
+
+  myTempProbes = new TempProbe[numberOfTempProbes];
+
+  Serial.println("Loaded " + String(loadConfigurationProbes(probesfilename)) + " DS18B20 Probes from " + String(probesfilename));
 
   Serial.print("\nConnecting to Wifi: ");
   WiFi.begin(config.ssid.c_str(), config.wifipassword.c_str());
@@ -239,14 +251,7 @@ void setup() {
 
   printLCD("Ready", "Getting Temp");
 
-  Serial.println("Initialising Temp Sensors");
-  sensors.begin();
-
-  numberOfTempProbes = sensors.getDeviceCount();
-  syslogSend("Found " + String(numberOfTempProbes) + " temperature probes");
-
-  myTempProbes = new TempProbe[numberOfTempProbes];
-
+  /*
   // need to reset_search before each scan
   oneWire.reset_search();
 
@@ -262,7 +267,9 @@ void setup() {
     // why is printAddress return in caps?
     //printAddress(myTempProbes[i].address); Serial.println();
   }
+  */
 
+  /*
   Serial.println("BEFORE");
   Serial.print("      Temp 0:"); printTemperature(myTempProbes[0].address); Serial.println();
   Serial.print("   Address 0:"); printAddress(myTempProbes[0].address); Serial.println();
@@ -274,6 +281,7 @@ void setup() {
   Serial.print("   Address 0:"); printAddress(myTempProbes[0].address); Serial.println();
   Serial.print("    Alarms 0:"); printAlarmsNew(myTempProbes[0].address); Serial.println();
   Serial.print("Resolution 0:"); Serial.print(sensors.getResolution(myTempProbes[0].address), DEC); Serial.println();
+  */
 
   //Serial.println("Probe1 Temp:" + printTempProbe(0));
   // search for devices on the bus and assign based on an index.
@@ -624,6 +632,16 @@ String probeScanner() {
     alarmLow = sensors.getLowAlarmTemp(foundDevice);
     alarmHigh = sensors.getHighAlarmTemp(foundDevice);
 
+    // copy address
+    for (uint8_t j = 0; j < 8; j++) {
+      myTempProbes[i].address[j] = foundDevice[j];
+    }
+    myTempProbes[i].name = "Probe " + String(i);
+    myTempProbes[i].location = "Location " + String(i);
+    myTempProbes[i].resolution = sensors.getResolution(foundDevice);
+    myTempProbes[i].lowalarm = sensors.getLowAlarmTemp(foundDevice);
+    myTempProbes[i].highalarm = sensors.getHighAlarmTemp(foundDevice);
+
     if (config.metric) {
       returnText += ",\"lowalarm\":\"" + String(alarmLow, DEC) + " C" + "\"";
       returnText += ",\"highalarm\":\"" + String(alarmHigh, DEC) + " C" + "\"";
@@ -635,6 +653,10 @@ String probeScanner() {
     returnText += "}";
     i++;
   }
+
+  // after scanning and finding probes, save the details to probes.txt
+  saveConfigurationProbes(probesfilename);
+
 
   //===============
   // used to simulate a second probe being found
@@ -676,4 +698,32 @@ void printMyTempProbes() {
     Serial.println(String(i) + "  highalarm:" + myTempProbes[i].highalarm);
     //Serial.println(i + " :" + myTempProbes[i].);
   }
+}
+
+String displayConfiguredProbes() {
+  syslogSend("Loading DS18B20 Temperature Probes");
+
+  // if no probes have been loaded, return empty json
+  if (numberOfLoadedTempProbes == 0) {
+    return "[]";
+  }
+
+  String returnText = "[";
+
+  int i = 0;
+  for (int i = 0; i < numberOfTempProbes; i++) {
+    if (returnText.length() > 1) returnText += ",";
+    returnText += "{";
+    returnText += "\"number\":" + String(i);
+    returnText += ",\"address\":\"" + giveStringDeviceAddress(myTempProbes[i].address) + "\"";
+    returnText += ",\"name\":\"" + myTempProbes[i].name + "\"";
+    returnText += ",\"location\":\"" + myTempProbes[i].location + "\"";
+    returnText += ",\"resolution\":" + String(myTempProbes[i].resolution, DEC);
+    returnText += ",\"lowalarm\":" + String(myTempProbes[i].lowalarm, DEC);
+    returnText += ",\"highalarm\":" + String(myTempProbes[i].highalarm, DEC);
+    returnText += "}";
+  }
+
+  returnText += "]";
+  return returnText;
 }

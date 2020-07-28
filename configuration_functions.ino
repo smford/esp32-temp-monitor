@@ -302,5 +302,143 @@ void printConfig() {
   Serial.print("     pushoveruserkey: "); Serial.println(config.pushoveruserkey);
   Serial.print("      pushoverdevice: "); Serial.println(config.pushoverdevice);
   Serial.print("              metric: "); Serial.println(config.metric);
+}
 
+void saveConfigurationProbes(const char *filename) {
+  // not using syslogSend here because it can be called before syslog has been configured
+
+  // Delete existing file, otherwise the configuration is appended to the file
+  SPIFFS.remove(filename);
+
+  // Open file for writing
+  File file = SPIFFS.open(filename, FILE_WRITE);
+  if (!file) {
+    Serial.println(F("Failed to create file"));
+    return;
+  }
+
+  StaticJsonDocument<1000> doc;
+
+  if (numberOfTempProbes > 0) {
+    JsonArray Probes = doc.createNestedArray("Probes");
+    JsonObject myProbes[numberOfTempProbes];
+
+    for (int i = 0; i < numberOfTempProbes; i++) {
+      myProbes[i] = Probes.createNestedObject();
+      myProbes[i]["number"] = i;
+      myProbes[i]["name"] = myTempProbes[i].name;
+      myProbes[i]["location"] = myTempProbes[i].location;
+      myProbes[i]["address"] = giveStringDeviceAddress(myTempProbes[i].address);
+      myProbes[i]["resolution"] = sensors.getResolution(myTempProbes[i].address);
+      myProbes[i]["lowalarm"] = sensors.getLowAlarmTemp(myTempProbes[i].address);
+      myProbes[i]["highalarm"] = sensors.getHighAlarmTemp(myTempProbes[i].address);
+    }
+  }
+
+  // Serialize JSON to file
+  if (serializeJson(doc, file) == 0) {
+    Serial.println(F("Failed to write to file"));
+  }
+
+  // need to print out the deserialisation to discern size
+
+  // Close the file
+  file.close();
+}
+
+int loadConfigurationProbes(const char *filename) {
+  // not using syslogSend here because it can be called before syslog has been configured
+  Serial.println("Loading configuration from " + String(filename));
+
+  if (!SPIFFS.exists(filename)) {
+    Serial.println(String(filename) + " not found");
+    // return 0 loaded probes
+    return 0;
+  } else {
+    Serial.println(String(filename) + " found");
+  }
+
+  // Open file for reading
+  Serial.println("Opening " + String(filename));
+  File file = SPIFFS.open(filename);
+
+  //Serial.println("File contents=");
+  //while (file.available()) {
+  //  Serial.write(file.read());
+  //}
+  //Serial.println("\n========");
+
+  if (!file) {
+    Serial.println("ERROR: Failed to open file" + String(filename));
+    return 0;
+  }
+
+  StaticJsonDocument<300> doc;
+
+  // Deserialize the JSON document
+  DeserializationError error = deserializeJson(doc, file);
+  if (error) {
+    Serial.print("Failed to process probes configuration file"); Serial.println(error.c_str());
+    return 0;
+  }
+
+  JsonObject Probes_0 = doc["Probes"][0];
+  int Probes_0_number = Probes_0["number"]; // 0
+  const char* Probes_0_name = Probes_0["name"]; // "Probe 0"
+  const char* Probes_0_location = Probes_0["location"]; // "Location 0"
+  const char* Probes_0_address = Probes_0["address"]; // "28ff9ba36115351"
+  int Probes_0_resolution = Probes_0["resolution"]; // 10
+  int Probes_0_lowalarm = Probes_0["lowalarm"]; // 10
+  int Probes_0_highalarm = Probes_0["highalarm"]; // 75
+
+  Serial.println("===========");
+  Serial.print("Size=doc[\"Probes\"]="); Serial.println(doc["Probes"].size());
+  Serial.println("===========");
+  Serial.print("Size=doc[\"Probes\"][0]="); Serial.println(Probes_0.size()); // 1
+  Serial.println(Probes_0_number);
+  Serial.println(Probes_0_name);
+  Serial.println(Probes_0_location);
+  Serial.println(Probes_0_address);
+  Serial.println(Probes_0_resolution);
+  Serial.println(Probes_0_lowalarm);
+  Serial.println(Probes_0_highalarm);
+  Serial.println("===========");
+
+  for (int i = 0; i < doc["Probes"].size(); i++) {
+    myTempProbes[i].name = doc["Probes"][i]["name"].as<String>();
+    myTempProbes[i].location = doc["Probes"][i]["location"].as<String>();
+    //myTempProbes[i].address = doc["Probes"][i]["address"];
+    const char* temp = doc["Probes"][i]["address"].as<char*>();
+    //const char* temp = doc["Probes"][i]["address"];
+
+    Serial.print("temp="); Serial.println(temp);
+    // https://forum.arduino.cc/index.php?topic=205352.msg1511851#msg1511851
+    int addrv[8];
+    sscanf(temp, "%x,%x,%x,%x,%x,%x,%x,%x", &addrv[0], &addrv[1], &addrv[2], &addrv[3], &addrv[4], &addrv[5], &addrv[6], &addrv[7]);  // parse the 8 ascii hex bytes in 8 ints
+
+    for(int j = 0; j < 8; j++) {
+      myTempProbes[i].address[j] = (__typeof__(myTempProbes[i].address[0])) addrv[j]; //fill in device address bytes using a cast
+    }
+
+    Serial.println("after copying in address:" + giveStringDeviceAddress(myTempProbes[i].address));
+    /*
+    //const char* temp = "28ff9ba36115351";
+    for (int j = 0; j < 8; j++) {
+      myTempProbes[i].address[j] = temp[j];
+      Serial.print(temp[j]); Serial.print("="); Serial.println(myTempProbes[i].address[j]);
+    }
+    */
+
+    //myTempProbes[i].address = doc["Probes"][i]["address"].as<unsigned char>();
+    myTempProbes[i].resolution = doc["Probes"][i]["resolution"];
+    myTempProbes[i].lowalarm = doc["Probes"][i]["lowalarm"];
+    myTempProbes[i].highalarm = doc["Probes"][i]["highalarm"];
+  }
+
+  file.close();
+
+  numberOfLoadedTempProbes = doc["Probes"].size();
+
+  // return the number of loaded probes
+  return numberOfLoadedTempProbes;
 }
