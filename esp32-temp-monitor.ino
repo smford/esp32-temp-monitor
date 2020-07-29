@@ -15,7 +15,7 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.1.2.14"
+#define FIRMWARE_VERSION "v0.1.2.15"
 #define LCDWIDTH 16
 #define LCDROWS 2
 
@@ -59,6 +59,7 @@ struct AlarmAction {
 };
 
 struct TempProbe {
+  int number;                  // number of temp probe
   String name;                 // name of the probe
   String location;             // location of probe
   DeviceAddress address;       // device address
@@ -164,16 +165,6 @@ void setup() {
 
   numberOfTempProbes = sensors.getDeviceCount();
   syslogSend("Found " + String(numberOfTempProbes) + " DS18B20 temperature probes upon boot");
-
-  DeviceAddress wtf;
-
-  sensors.getAddress(wtf, 0);
-
-  Serial.println("=====");
-  Serial.print("DEC:"); printAddressDec(wtf); Serial.println();
-  Serial.print("HEX:"); printAddress(wtf); Serial.println();
-  Serial.println("=====");
-  
 
   myTempProbes = new TempProbe[numberOfTempProbes];
 

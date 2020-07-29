@@ -362,12 +362,6 @@ int loadConfigurationProbes(const char *filename) {
   Serial.println("Opening " + String(filename));
   File file = SPIFFS.open(filename);
 
-  //Serial.println("File contents=");
-  //while (file.available()) {
-  //  Serial.write(file.read());
-  //}
-  //Serial.println("\n========");
-
   if (!file) {
     Serial.println("ERROR: Failed to open file" + String(filename));
     return 0;
@@ -382,103 +376,28 @@ int loadConfigurationProbes(const char *filename) {
     return 0;
   }
 
-  JsonObject Probes_0 = doc["Probes"][0];
-  int Probes_0_number = Probes_0["number"]; // 0
-  const char* Probes_0_name = Probes_0["name"]; // "Probe 0"
-  const char* Probes_0_location = Probes_0["location"]; // "Location 0"
-  const char* Probes_0_address = Probes_0["address"]; // "28ff9ba36115351"
-  int Probes_0_resolution = Probes_0["resolution"]; // 10
-  int Probes_0_lowalarm = Probes_0["lowalarm"]; // 10
-  int Probes_0_highalarm = Probes_0["highalarm"]; // 75
-
-  Serial.println("===========");
-  Serial.print("Size=doc[\"Probes\"]="); Serial.println(doc["Probes"].size());
-  Serial.println("===========");
-  Serial.print("Size=doc[\"Probes\"][0]="); Serial.println(Probes_0.size()); // 1
-  Serial.println(Probes_0_number);
-  Serial.println(Probes_0_name);
-  Serial.println(Probes_0_location);
-  Serial.println(Probes_0_address);
-  Serial.println(Probes_0_resolution);
-  Serial.println(Probes_0_lowalarm);
-  Serial.println(Probes_0_highalarm);
-  Serial.println("===========");
-
   for (int i = 0; i < doc["Probes"].size(); i++) {
+    myTempProbes[i].number = doc["Probes"][i]["number"];
     myTempProbes[i].name = doc["Probes"][i]["name"].as<String>();
     myTempProbes[i].location = doc["Probes"][i]["location"].as<String>();
-    //myTempProbes[i].address = doc["Probes"][i]["address"];
-    const char* temp = doc["Probes"][i]["address"].as<char*>();
-    //const char* temp = doc["Probes"][i]["address"];
-
-    Serial.print("temp="); Serial.println(temp);
-    // https://forum.arduino.cc/index.php?topic=205352.msg1511851#msg1511851
-    /*
-    int addrv[8];
-    sscanf(temp, "%x%x%x%x%x%x%x%x", &addrv[0], &addrv[1], &addrv[2], &addrv[3], &addrv[4], &addrv[5], &addrv[6], &addrv[7]);  // parse the 8 ascii hex bytes in 8 ints
-
-    for(int j = 0; j < 8; j++) {
-      myTempProbes[i].address[j] = (__typeof__(myTempProbes[i].address[0])) addrv[j]; //fill in device address bytes using a cast
-    }
-    */
-    
-    //uint64_t val;
-    //sscanf(temp, "%X", val);
-    //myTempProbes[i].address = (DeviceAddress) val;
-
-    Serial.println("after copying in address:" + giveStringDeviceAddress(myTempProbes[i].address));
-    
-    const char* temp2 = "28,ff,9b,a3,61,15,03,51";
-    byte addrv[8];
-    DeviceAddress someshit;
-    sscanf(temp2, "%x,%x,%x,%x,%x,%x,%x,%x", &addrv[0], &addrv[1], &addrv[2], &addrv[3], &addrv[4], &addrv[5], &addrv[6], &addrv[7]);
-    for(int j = 0; j < 8; j++) {
-      //myTempProbes[i].address[j] = (__typeof__(myTempProbes[i].address[0])) addrv[j]; //fill in device address bytes using a cast
-      someshit[j] = (uint8_t) addrv[j];
-    }
-
-    Serial.println("someshit=====");
-    Serial.print("DEC:"); printAddressDec(someshit); Serial.println();
-    Serial.print("HEX:"); printAddress(someshit); Serial.println();
-    Serial.println("=====");
-
-    const char* temp3 = "28ff9ba361150351";
-    byte addrv2[8];
-    DeviceAddress someshit2;
-    sscanf(temp3, "%2x%2x%2x%2x%2x%2x%2x%2x", &addrv2[0], &addrv2[1], &addrv2[2], &addrv2[3], &addrv2[4], &addrv2[5], &addrv2[6], &addrv2[7]);
-    for(int j = 0; j < 8; j++) {
-      //myTempProbes[i].address[j] = (__typeof__(myTempProbes[i].address[0])) addrv[j]; //fill in device address bytes using a cast
-      someshit2[j] = (uint8_t) addrv2[j];
-    }
-
-    Serial.println("someshit2=====");
-    Serial.print("DEC:"); printAddressDec(someshit2); Serial.println();
-    Serial.print("HEX:"); printAddress(someshit2); Serial.println();
-    Serial.println("=====");
-
-    byte addrv3[8];
-    DeviceAddress someshit3;
-    sscanf(doc["Probes"][i]["address"], "%2x%2x%2x%2x%2x%2x%2x%2x", &addrv3[0], &addrv3[1], &addrv3[2], &addrv3[3], &addrv3[4], &addrv3[5], &addrv3[6], &addrv3[7]);
-    for(int j = 0; j < 8; j++) {
-      someshit3[j] = (uint8_t) addrv3[j];
-    }
-
-    Serial.println("someshit3 from json=====");
-    Serial.print("DEC:"); printAddressDec(someshit3); Serial.println();
-    Serial.print("HEX:"); printAddress(someshit3); Serial.println();
-    Serial.println("=====");
-    
-    /*
-    for (int j = 0; j < 8; j++) {
-      myTempProbes[i].address[j] = temp[j];
-      Serial.print(temp[j]); Serial.print("="); Serial.println(myTempProbes[i].address[j]);
-    }
-    */
-    
-    //myTempProbes[i].address = doc["Probes"][i]["address"].as<unsigned char>();
     myTempProbes[i].resolution = doc["Probes"][i]["resolution"];
     myTempProbes[i].lowalarm = doc["Probes"][i]["lowalarm"];
     myTempProbes[i].highalarm = doc["Probes"][i]["highalarm"];
+    
+    byte tempaddress[8];
+    sscanf(doc["Probes"][i]["address"], "%2x%2x%2x%2x%2x%2x%2x%2x", &tempaddress[0], &tempaddress[1], &tempaddress[2], &tempaddress[3], &tempaddress[4], &tempaddress[5], &tempaddress[6], &tempaddress[7]);
+    for(int j = 0; j < 8; j++) {
+      myTempProbes[i].address[j] = (uint8_t) tempaddress[j];
+    }
+
+    Serial.println("    Number: " + String(myTempProbes[i].number));
+    Serial.println("      Name: " + myTempProbes[i].name);
+    Serial.print("   Address: "); printAddress(myTempProbes[i].address); Serial.println();
+    Serial.println("  Location: " + myTempProbes[i].location);
+    Serial.println("Resolution: " + String(myTempProbes[i].resolution));
+    Serial.println(" Low Alarm: " + String(myTempProbes[i].lowalarm));
+    Serial.println("High Alarm: " + String(myTempProbes[i].highalarm));
+    Serial.println("=====");
   }
 
   file.close();
