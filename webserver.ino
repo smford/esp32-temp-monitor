@@ -37,6 +37,22 @@ String processor(const String& var) {
   if (var == "TIME") {
     return printTime();
   }
+
+  if (var == "SAVESPROBESSCAN") {
+    if (anyScannedProbes) {
+      return "";
+    } else {
+      return "disabled";
+    }
+  }
+
+  if (var == "ANYLOADEDPROBES") {
+    if (numberOfLoadedTempProbes > 0) {
+      return "";
+    } else {
+      return "disabled";
+    }
+  }
 }
 
 void configureWebServer() {
@@ -61,21 +77,31 @@ void configureWebServer() {
   server->on("/", HTTP_GET, [](AsyncWebServerRequest * request) {
     // not using checkUserWebAuth here because this page is not presented via api
     if (!request->authenticate(config.httpuser.c_str(), config.httppassword.c_str())) {
-      syslogSend("Client:" + request->client()->remoteIP().toString() + " " + request->url() + " Auth:Failed, Requesting Authentication");
+      syslogSend("Client:" + request->client()->remoteIP().toString() + " " + request->url() + " Auth: Failed, Requesting Authentication");
       return request->requestAuthentication();
     }
 
     /*
-    int headers = request->headers();
-    int i;
-    for (i = 0; i < headers; i++) {
-      AsyncWebHeader* h = request->getHeader(i);
-      Serial.printf("HEADER[%s]: %s\n", h->name().c_str(), h->value().c_str());
-    }
+      int headers = request->headers();
+      for (int i = 0; i < headers; i++) {
+        AsyncWebHeader* h = request->getHeader(i);
+        Serial.printf("HEADER[%s]: %s\n", h->name().c_str(), h->value().c_str());
+      }
     */
 
-    syslogSend("Client:" + request->client()->remoteIP().toString() + + " " + request->url() + " Auth:Success");
+    syslogSend("Client:" + request->client()->remoteIP().toString() + + " " + request->url() + " Auth: Success");
     request->send_P(200, "text/html", index_html, processor);
+  });
+
+  server->on("/printprobes", HTTP_GET, [](AsyncWebServerRequest * request) {
+    // not using checkUserWebAuth here because this page is not presented via api
+    if (!request->authenticate(config.httpuser.c_str(), config.httppassword.c_str())) {
+      syslogSend("Client:" + request->client()->remoteIP().toString() + " " + request->url() + " Auth: Failed, Requesting Authentication");
+      return request->requestAuthentication();
+    }
+    syslogSend("Client:" + request->client()->remoteIP().toString() + + " " + request->url() + " Auth: Success");
+    printMyTempProbes();
+    request->send(200, "text/html", "printed");
   });
 
   server->on("/scani2c", HTTP_GET, [](AsyncWebServerRequest * request) {
@@ -84,6 +110,55 @@ void configureWebServer() {
       logmessage += " Auth: Success";
       syslogSend(logmessage);
       request->send(200, "application/json", i2cScanner());
+    } else {
+      logmessage += " Auth: Failed";
+      syslogSend(logmessage);
+      return request->requestAuthentication();
+    }
+  });
+
+  server->on("/scanprobes", HTTP_GET, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    if (checkUserWebAuth(request)) {
+      logmessage += " Auth: Success";
+      syslogSend(logmessage);
+      request->send(200, "application/json", probeScanner());
+    } else {
+      logmessage += " Auth: Failed";
+      syslogSend(logmessage);
+      return request->requestAuthentication();
+    }
+  });
+
+  server->on("/scanprobessave", HTTP_GET, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    if (checkUserWebAuth(request)) {
+      logmessage += " Auth: Success";
+      syslogSend(logmessage);
+      if (anyScannedProbes) {
+        saveConfigurationScannedProbes(probesfilename);
+        request->send(200, "application/json", "{\"message\":\"Saved " + String(numberOfTempProbes) + " Scanned Probes\",\"number\":" + String(numberOfTempProbes) + "}");
+      } else {
+        request->send(200, "application/json", "{\"message\":\"Please scan for probes first\"}");
+      }
+    } else {
+      logmessage += " Auth: Failed";
+      syslogSend(logmessage);
+      return request->requestAuthentication();
+    }
+  });
+
+  server->on("/loadprobes", HTTP_GET, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    if (checkUserWebAuth(request)) {
+      logmessage += " Auth: Success";
+      syslogSend(logmessage);
+      // force a reload from probesfilename
+      delete[] myTempProbes;
+      numberOfLoadedTempProbes = 0;
+      myTempProbes = new TempProbe[numberOfTempProbes];
+      Serial.println("Loaded " + String(loadConfigurationProbes(probesfilename)) + " DS18B20 Probes from " + String(probesfilename));
+      request->send(200, "application/json", displayConfiguredProbes());
     } else {
       logmessage += " Auth: Failed";
       syslogSend(logmessage);
@@ -154,6 +229,45 @@ void configureWebServer() {
     }
   });
 
+  server->on("/backlight", HTTP_GET, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    if (checkUserWebAuth(request)) {
+      String returnText;
+      int returnCode;
+      if (request->hasParam("state")) {
+        const char* selectState = request->getParam("state")->value().c_str();
+
+        logmessage += " Auth: Success";
+
+        if (strcmp(selectState, "on") == 0) {
+          lcd.backlight();
+          returnText = "LCD Backlight On";
+          logmessage = logmessage + " " + returnText;
+          returnCode = 200;
+        } else if (strcmp(selectState, "off") == 0) {
+          lcd.noBacklight();
+          returnText = "LCD Backlight Off";
+          logmessage = logmessage + " " + returnText;
+          returnCode = 200;
+        } else {
+          returnText = "ERROR: bad state param supplied";
+          logmessage = logmessage + " " + returnText;
+          returnCode = 400;
+        }
+      } else {
+        returnText = "ERROR: state param required";
+        logmessage = logmessage + " " + returnText;
+        returnCode = 400;
+      }
+      syslogSend(logmessage);
+      request->send(returnCode, "text/html", returnText);
+    } else {
+      logmessage += " Auth: Failed";
+      syslogSend(logmessage);
+      return request->requestAuthentication();
+    }
+  });
+
   server->on("/reboot", HTTP_GET, [](AsyncWebServerRequest * request) {
     if (checkUserWebAuth(request)) {
       request->send(200, "text/html", reboot_html);
@@ -187,7 +301,136 @@ void configureWebServer() {
       return request->requestAuthentication();
     }
   });
+  //============
+  server->on("/setprobe", HTTP_POST, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    int numberOfParams = request->params();
 
+    Serial.println("Param number:" + String(numberOfParams));
+    for (int i = 0; i < numberOfParams; i++) {
+      AsyncWebParameter* p = request->getParam(i);
+      Serial.print("Param name: ");
+      Serial.println(p->name());
+      Serial.print("Param value: ");
+      Serial.println(p->value());
+      Serial.println("------");
+    }
+
+    if (numberOfParams < 2) {
+      request->send(200, "text/plain", "ERROR: Too few params supplied");
+      return;
+    }
+
+    if (numberOfParams > 2) {
+      request->send(200, "text/plain", "ERROR: Too many params supplied");
+      return;
+    }
+
+    const char *probeID;
+    const char *myParam;
+    const char *myValue;
+
+    if (strcmp(request->getParam(0)->name().c_str(), "probe") == 0) {
+      probeID = request->getParam(0)->value().c_str();
+      myParam = request->getParam(1)->name().c_str();
+      myValue = request->getParam(1)->value().c_str();
+    } else if (strcmp(request->getParam(1)->name().c_str(), "probe") == 0) {
+      probeID = request->getParam(1)->value().c_str();
+      myParam = request->getParam(0)->name().c_str();
+      myValue = request->getParam(0)->value().c_str();
+    } else {
+      request->send(200, "text/plain", "ERROR: No probe supplied");
+      return;
+    }
+
+    if ((atoi(probeID) < 0) || (atoi(probeID) > numberOfTempProbes)) {
+      request->send(200, "text/plain", "ERROR: Invalid probe supplied");
+      return;
+    }
+
+    //myTempProbes[atoi(probeID)].name = String(myValue);
+    //Serial.println("myTempProbes[" + String(probeID) + "]=" + myTempProbes[atoi(probeID)].name);
+
+    String returnText;
+    bool initiatesave = false;
+
+    if (strcmp(myParam, "name") == 0) {
+      syslogSend("Setting Change:" + String(myParam) + " From:" + myTempProbes[atoi(probeID)].name + " To:" + String(myValue));
+      myTempProbes[atoi(probeID)].name = String(myValue);
+      initiatesave = true;
+      //request->send(200, "text/plain", "Updated: Probe " + String(probeID) + " name=" + myTempProbes[atoi(probeID)].name);
+      returnText = "Updated: Probe " + String(probeID) + " name=" + myTempProbes[atoi(probeID)].name;
+    }
+    else if (strcmp(myParam, "location") == 0) {
+      syslogSend("Setting Change:" + String(myParam) + " From:" + myTempProbes[atoi(probeID)].location + " To:" + String(myValue));
+      myTempProbes[atoi(probeID)].location = String(myValue);
+      initiatesave = true;
+      //request->send(200, "text/plain", "Updated: Probe " + String(probeID) + " location=" + myTempProbes[atoi(probeID)].location);
+      returnText = "Updated: Probe " + String(probeID) + " location=" + myTempProbes[atoi(probeID)].location;
+    }
+    else if (strcmp(myParam, "resolution") == 0) {
+      syslogSend("Setting Change:" + String(myParam) + " From:" + myTempProbes[atoi(probeID)].resolution + " To:" + String(myValue));
+      int newResolution = atoi(myValue);
+      if ((newResolution >= 9) && (newResolution <= 12)) {
+        myTempProbes[atoi(probeID)].resolution = newResolution;
+        initiatesave = true;
+        sensors.setResolution(myTempProbes[atoi(probeID)].address, newResolution);
+        Serial.print("Probe Resolution="); Serial.println(sensors.getResolution(myTempProbes[atoi(probeID)].address), DEC);
+        //request->send(200, "text/plain", "Updated: Probe " + String(probeID) + " resolution=" + myTempProbes[atoi(probeID)].resolution);
+        returnText = "Updated: Probe " + String(probeID) + " resolution=" + myTempProbes[atoi(probeID)].resolution;
+      } else {
+        //request->send(200, "text/plain", "ERROR: Probe " + String(probeID) + " resolution=" + newResolution + " is out of range 9-12");
+        returnText = "ERROR: Probe " + String(probeID) + " resolution=" + newResolution + " is out of range 9-12";
+      }
+    }
+    else if (strcmp(myParam, "lowalarm") == 0) {
+      syslogSend("Setting Change:" + String(myParam) + " From:" + myTempProbes[atoi(probeID)].lowalarm + " To:" + String(myValue));
+      int newAlarm = atoi(myValue);
+      if ((newAlarm >= -55) && (newAlarm <= 125)) {
+        myTempProbes[atoi(probeID)].lowalarm = newAlarm;
+        initiatesave = true;
+        sensors.setLowAlarmTemp(myTempProbes[atoi(probeID)].address, newAlarm);
+        Serial.print("Probe LowAlarm="); Serial.println(sensors.getLowAlarmTemp(myTempProbes[atoi(probeID)].address), DEC);
+        //request->send(200, "text/plain", "Updated: Probe " + String(probeID) + " lowalarm=" + myTempProbes[atoi(probeID)].lowalarm);
+        returnText = "Updated: Probe " + String(probeID) + " lowalarm=" + myTempProbes[atoi(probeID)].lowalarm;
+      } else {
+        //request->send(200, "text/plain", "ERROR: Probe " + String(probeID) + " lowalarm=" + newAlarm + " is out of range -55 to 125");
+        returnText = "ERROR: Probe " + String(probeID) + " lowalarm=" + newAlarm + " is out of range -55 to 125";
+      }
+    }
+    else if (strcmp(myParam, "highalarm") == 0) {
+      syslogSend("Setting Change:" + String(myParam) + " From:" + myTempProbes[atoi(probeID)].highalarm + " To:" + String(myValue));
+      int newAlarm = atoi(myValue);
+      if ((newAlarm >= -55) && (newAlarm <= 125)) {
+        myTempProbes[atoi(probeID)].highalarm = newAlarm;
+        initiatesave = true;
+        sensors.setHighAlarmTemp(myTempProbes[atoi(probeID)].address, newAlarm);
+        Serial.print("Probe HighAlarm="); Serial.println(sensors.getHighAlarmTemp(myTempProbes[atoi(probeID)].address), DEC);
+        //request->send(200, "text/plain", "Updated: Probe " + String(probeID) + " highalarm=" + myTempProbes[atoi(probeID)].highalarm);
+        returnText = "Updated: Probe " + String(probeID) + " highalarm=" + myTempProbes[atoi(probeID)].highalarm;
+      } else {
+        //request->send(200, "text/plain", "ERROR: Probe " + String(probeID) + " highalarm=" + newAlarm + " is out of range -55 to 125");
+        returnText = "ERROR: Probe " + String(probeID) + " highalarm=" + newAlarm + " is out of range -55 to 125";
+      }
+    }
+    //-----------
+    else {
+      syslogSend("ERROR: no valid config options supplied");
+      //request->send(200, "text/plain", "ERROR: No valid setprobes options supplied");
+      returnText = "ERROR: No valid setprobes options supplied";
+    }
+
+    request->send(200, "text/plain", returnText);
+    syslogSend(returnText);
+
+    if (initiatesave) {
+      Serial.println("Default configuration values loaded, saving configuration to " + String(filename));
+      saveConfigurationProbes(probesfilename);
+    }
+
+    printMyTempProbes();
+  });
+  //============
   server->on("/set", HTTP_POST, [](AsyncWebServerRequest * request) {
     String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
 
@@ -486,6 +729,29 @@ void configureWebServer() {
         initiatesave = true;
         request->send(200, "text/plain", "Updated: PushoverDevice=" + config.pushoverdevice);
       }
+      else if (strcmp(myParam, "metric") == 0) {
+        if (strcmp(myValue, "true") == 0) {
+          if (config.metric) {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "true" + " To:true");
+          } else {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "false" + " To:true");
+          }
+          config.metric = true;
+          initiatesave = true;
+          request->send(200, "text/plain", "Updated: Metric=true");
+        } if (strcmp(myValue, "false") == 0) {
+          if (config.metric) {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "true" + " To:false");
+          } else {
+            syslogSend("Setting Change:" + String(myParam) + " From:" + "false" + " To:false");
+          }
+          config.metric = false;
+          initiatesave = true;
+          request->send(200, "text/plain", "Updated: Metric=false");
+        } else {
+          request->send(200, "text/plain", "ERROR: Invalid Metric value=" + String(myValue));
+        }
+      }
       //=====================
       else {
         syslogSend("ERROR: no valid config options supplied");
@@ -581,7 +847,7 @@ bool checkUserWebAuth(AsyncWebServerRequest * request) {
   if (isAuthenticated == false) {
     syslogSend(logmessage + " Failed Authentication");
   }
-  
+
   return isAuthenticated;
 }
 

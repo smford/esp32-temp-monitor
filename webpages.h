@@ -16,7 +16,7 @@ const char index_html[] PROGMEM = R"rawliteral(
   <tr><td><span id="hostname">%HOSTNAME%</span></td></tr>
   <tr><td>Firmware:</td><td>%FIRMWARE%</td></tr>
   <tr><td>Storage:</td><td>Free: <span id="freespiffs">%FREESPIFFS%</span> | Used: <span id="usedspiffs">%USEDSPIFFS%</span> | Total: <span id="totalspiffs">%TOTALSPIFFS%</span></td></tr>
-  <tr><td>ESP32 Temp:</td><td><span id="cputemp">%TEMP%</span> C</td></tr>
+  <tr><td>ESP32 Temp:</td><td><span id="cputemp">%TEMP%</span></td></tr>
   <tr><td>Time:</td><td><span id="time">%TIME%</span></td></tr>
   <tr><td>Status:</td><td><span id="status"> </span></td></tr>
   <tr><td class='top'>LCD:</td><td><span id="lcddisplay">%LCDDISPLAY%</span></td></tr>
@@ -30,8 +30,13 @@ const char index_html[] PROGMEM = R"rawliteral(
   <button onclick="displayEditConfig()">Display/Edit Config</button>
   <button onclick="updateHeader()">Refresh Information</button>
   <button onclick="scani2c()">Scan I2C Devices</button>
+  <button onclick="scanProbes()">Scan for DS18B20 Temp Probes</button>
+  <button id="saveprobes" onclick="saveProbes()" %SAVESPROBESSCAN%>Save Scanned DS18B20 Temp Probes</button>
+  <button id="editprobes" onclick="editProbes()" %ANYLOADEDPROBES%>Edit Known DS18B20 Temp Probes</button>
   <button onclick="displayWifi()">Display WiFi Networks</button>
   <button onclick="refreshNTP()">Refresh NTP</button>
+  <button onclick="changeBacklightButton('on')">LCD Backlight On</button>
+  <button onclick="changeBacklightButton('off')">LCD Backlight Off</button>
   </p>
   <p id="detailsheader"></p>
   <p id="details"></p>
@@ -45,6 +50,13 @@ function refreshNTP() {
     document.getElementById("status").innerHTML = "Refreshed NTP";
     document.getElementById("time").innerHTML = xhr.responseText;
   },5000);
+}
+function changeBacklightButton(state) {
+  document.getElementById("status").innerHTML = "Turning LCD Backlight " . state;
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "/backlight?state=" + state, true);
+  xhr.send();
+  document.getElementById("status").innerHTML = "LCD Backlight " + state;
 }
 function displayWifi() {
   document.getElementById("status").innerHTML = "Scanning for WiFi Networks ...";
@@ -63,7 +75,6 @@ function displayWifi() {
 }
 function scani2c() {
   document.getElementById("status").innerHTML = "Scanning for I2C Devices";
-  document.getElementById("detailsheader").innerHTML = "<h3>Available I2C Devices<h3>";
   xmlhttp=new XMLHttpRequest();
   xmlhttp.open("GET", "/scani2c", false);
   xmlhttp.send();
@@ -74,9 +85,43 @@ function scani2c() {
   }
   displaydata = displaydata + "</table>";
   document.getElementById("status").innerHTML = "I2C Devices Scanned";
-  document.getElementById("detailsheader").innerHTML = "<h3>I2C Devices<h3>";
+  document.getElementById("detailsheader").innerHTML = "<h3>Found I2C Devices<h3>";
   document.getElementById("details").innerHTML = displaydata;
 }
+function scanProbes() {
+  document.getElementById("status").innerHTML = "Scanning for DS18B20 Temperature Probes";
+  xmlhttp=new XMLHttpRequest();
+  xmlhttp.open("GET", "/scanprobes", false);
+  xmlhttp.send();
+  var mydata = JSON.parse(xmlhttp.responseText);
+  var displaydata = "<table><tr><th align='left'>Number</th><th align='left'>Name</th><th align='left'>Location</th><th align='left'>Address</th><th align='left'>Bit Res</th><th align='left'>Low Alarm</th><th align='left'>High Alarm</th></tr>";
+  for (var key of Object.keys(mydata)) {
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td>" + "<td align='left'>" + mydata[key]["name"] + "</td><td align='left'>" + mydata[key]["location"] + "</td><td align='left'>" + mydata[key]["address"] + "</td><td align='left'>" + mydata[key]["resolution"] + "</td><td align='left'>" + mydata[key]["lowalarm"] + "</td><td align='left'>" + mydata[key]["highalarm"] + "</td></tr>";
+  }
+  displaydata = displaydata + "</table>";
+  if (mydata.count == 0) {
+    document.getElementById("saveprobes").disabled = true;
+  } else {
+    document.getElementById("saveprobes").disabled = false;
+  }
+  document.getElementById("status").innerHTML = "DS18B20 Temperature Probes Scanned";
+  document.getElementById("detailsheader").innerHTML = "<h3>Found DS18B20 Temperature Probes<h3>";
+  document.getElementById("details").innerHTML = displaydata;
+}
+//========
+function saveProbes() {
+  document.getElementById("status").innerHTML = "Saving Scanned DS18B20 Temperature Probes";
+  xmlhttp=new XMLHttpRequest();
+  xmlhttp.open("GET", "/scanprobessave", false);
+  xmlhttp.send();
+  var mydata = JSON.parse(xmlhttp.responseText);
+  if (mydata["number"] > 0) {
+    document.getElementById("editprobes").disabled = false;
+    document.getElementById("saveprobes").disabled = true;
+  }
+  document.getElementById("status").innerHTML = mydata["message"];
+}
+//========
 function updateHeader() {
   xmlhttp=new XMLHttpRequest();
   xmlhttp.open("GET", "/shortstatus", false);
@@ -86,6 +131,7 @@ function updateHeader() {
   document.getElementById("freespiffs").innerHTML = mydata["FreeSPIFFS"];
   document.getElementById("usedspiffs").innerHTML = mydata["UsedSPIFFS"];
   document.getElementById("totalspiffs").innerHTML = mydata["TotalSPIFFS"];
+  document.getElementById("time").innerHTML = mydata["Time"];
   document.getElementById("cputemp").innerHTML = mydata["CPUTemp"];
   document.getElementById("lcddisplay").innerHTML = mydata["LCD"];
 }
@@ -129,9 +175,9 @@ function logoutButton() {
 }
 function rebootButton() {
   document.getElementById("status").innerHTML = "Invoking Reboot ...";
-  var xhr = new XMLHttpRequest();
-  xhr.open("GET", "/reboot", true);
-  xhr.send();
+  //var xhr = new XMLHttpRequest();
+  //xhr.open("GET", "/reboot", true);
+  //xhr.send();
   window.open("/reboot","_self");
 }
 function listFilesButton() {
@@ -214,6 +260,44 @@ function errorHandler(event) {
 }
 function abortHandler(event) {
   _("status").innerHTML = "Upload Aborted";
+}
+function configureProbesButton() {
+  document.getElementById("status").innerHTML = "Configuring Probes";
+  window.open("/configureprobes","_self");
+}
+function editProbes() {
+  document.getElementById("status").innerHTML = "Loading Known DS18B20 Temperature Probes";
+  xmlhttp=new XMLHttpRequest();
+  xmlhttp.open("GET", "/loadprobes", false);
+  xmlhttp.send();
+  var mydata = JSON.parse(xmlhttp.responseText);
+  var displaydata = "";
+  for (var key of Object.keys(mydata)) {
+    displaydata = displaydata + "<table><tr><th align='left'>ID</th><th align='left'>Setting</th><th align='left'>Current</th><th align='left'>New</th></tr>";
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Address</td><td align='left'>" + mydata[key]["address"] + "</td><td></td></tr>";
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Name</td><td align='left'>" + mydata[key]["name"] + "</td><td align='left'><form method='POST' onsubmit='return submitFormProbes(this);' action='/setprobe?probe=" + mydata[key]["number"] + "'><input type='text' name='name'>" + "<input type='submit' value='Submit'></form></td></tr>";
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Location</td><td align='left'>" + mydata[key]["location"] + "</td><td align='left'><form method='POST' onsubmit='return submitFormProbes(this);' action='/setprobe?probe=" + mydata[key]["number"] + "'><input type='text' name='location'>" + "<input type='submit' value='Submit'></form></td></tr>";
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Bit Resolution</td><td align='left'>" + mydata[key]["resolution"] + "</td><td align='left'><form method='POST' onsubmit='return submitFormProbes(this);' action='/setprobe?probe=" + mydata[key]["number"] + "'><input type='text' name='resolution'>" + "<input type='submit' value='Submit'></form></td></tr>";
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Low Alarm</td><td align='left'>" + mydata[key]["lowalarm"] + "</td><td align='left'><form method='POST' onsubmit='return submitFormProbes(this);' action='/setprobe?probe=" + mydata[key]["number"] + "'><input type='text' name='lowalarm'>" + "<input type='submit' value='Submit'></form></td></tr>";
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>High Alarm</td><td align='left'>" + mydata[key]["highalarm"] + "</td><td align='left'><form method='POST' onsubmit='return submitFormProbes(this);' action='/setprobe?probe=" + mydata[key]["number"] + "'><input type='text' name='highalarm'>" + "<input type='submit' value='Submit'></form></td></tr>";
+    displaydata = displaydata + "</table>";
+  }
+  document.getElementById("status").innerHTML = "DS18B20 Temperature Probes Loaded";
+  document.getElementById("detailsheader").innerHTML = "<h3>Loaded Known DS18B20 Temperature Probes<h3>";
+  document.getElementById("details").innerHTML = displaydata;
+}
+function submitFormProbes(oFormElement) {
+  var xhr = new XMLHttpRequest();
+  xhr.onload = function() {
+    document.getElementById("status").innerHTML = xhr.responseText;
+    editProbes();
+  }
+  xhr.open(oFormElement.method, oFormElement.getAttribute("action"));
+  xhr.send(new FormData(oFormElement));
+  setTimeout(function(){
+    updateHeader();
+  }, 2000);
+  return false;
 }
 </script>
 </body>

@@ -9,42 +9,75 @@
 #include <LiquidCrystal_I2C.h>
 #include <ArduinoJson.h>
 #include <ezTime.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
+#include <math.h>
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.0.12"
+#define FIRMWARE_VERSION "v0.1.2.17"
 #define LCDWIDTH 16
 #define LCDROWS 2
 
 // configuration structure
 struct Config {
-  String hostname;           // hostname of device
-  String appname;            // application name
-  String ssid;               // wifi ssid
-  String wifipassword;       // wifi password
-  String httpuser;           // username to access web admin
-  String httppassword;       // password to access web admin
-  String httpapitoken;       // api token used to authenticate against the device
-  int webserverporthttp;     // http port number for web admin
-  int webserverporthttps;    // https port number for the web admin
-  bool syslogenable;         // enable syslog
-  String syslogserver;       // hostname or ip of the syslog server
-  int syslogport;            // sylog port number
-  bool telegrafenable;       // turns on or off shipping of metrics to telegraf
-  String telegrafserver;     // hostname or ip of telegraf server
-  int telegrafserverport;    // port number for telegraf
-  int telegrafshiptime;      // how often in seconds we should ship metrics to telegraf
-  int tempchecktime;         // how often in seconds to check temperature
-  String ntpserver;          // hostname or ip of the ntpserver
-  String ntptimezone;        // ntp time zone to use, use the TZ database name from https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
-  int ntpsynctime;           // how frequently to schedule the regular syncing of ntp time
-  int ntpwaitsynctime;       // upon boot, wait these many seconds to get ntp time from server
-  bool pushoverenable;       // enable pushover
-  String pushoverapptoken;   // pushover app token
-  String pushoveruserkey;    // pushover user key
-  String pushoverdevice;     // pushover device name
+  String hostname;             // hostname of device
+  String appname;              // application name
+  String ssid;                 // wifi ssid
+  String wifipassword;         // wifi password
+  String httpuser;             // username to access web admin
+  String httppassword;         // password to access web admin
+  String httpapitoken;         // api token used to authenticate against the device
+  int webserverporthttp;       // http port number for web admin
+  int webserverporthttps;      // https port number for the web admin
+  bool syslogenable;           // enable syslog
+  String syslogserver;         // hostname or ip of the syslog server
+  int syslogport;              // sylog port number
+  bool telegrafenable;         // turns on or off shipping of metrics to telegraf
+  String telegrafserver;       // hostname or ip of telegraf server
+  int telegrafserverport;      // port number for telegraf
+  int telegrafshiptime;        // how often in seconds we should ship metrics to telegraf
+  int tempchecktime;           // how often in seconds to check temperature
+  String ntpserver;            // hostname or ip of the ntpserver
+  String ntptimezone;          // ntp time zone to use, use the TZ database name from https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+  int ntpsynctime;             // how frequently to schedule the regular syncing of ntp time
+  int ntpwaitsynctime;         // upon boot, wait these many seconds to get ntp time from server
+  bool pushoverenable;         // enable pushover
+  String pushoverapptoken;     // pushover app token
+  String pushoveruserkey;      // pushover user key
+  String pushoverdevice;       // pushover device name
+  bool metric;                 // y = celcius, n = fahrenheit
 };
 
+struct AlarmAction {
+  bool pushoverenable;         // send a pushover message?
+  bool relayenable;            // fire a relay?
+  int relaypin;                // pin that fires the relay
+  bool servoenable;            // control a servo?
+  int servopin;                // pin that servo is on
+  int servoposition;           // position to move servo to
+};
+
+struct TempProbe {
+  int number;                  // number of temp probe
+  String name;                 // name of the probe
+  String location;             // location of probe
+  DeviceAddress address;       // device address
+  int resolution;              // temperature resolution: The resolution of the DS18B20 is configurable (9, 10, 11, or 12 bits), with 12-bit readings the factory default state. This equates to a temperature resolution of 0.5°C, 0.25°C, 0.125°C, or 0.0625°C
+  float highalarm;             // temp that will fire a high alarm
+  float lowalarm;              // temp that will fire a low alarm
+  //AlarmAction highalarmaction; // action that fires when high alarm occurs
+  //AlarmAction lowalarmaction;  // action that fires when a low alarm occurs
+  //AlarmAction normalaction;    // what to do when temp is between high and low
+};
+
+TempProbe *myTempProbes;            // probes that have been loaded from file
+TempProbe *scannedProbes;           // probes that have been found whilst scanning
+int numberOfTempProbes;             // number of probes found when scanned
+bool anyScannedProbes = false;      // have any probes been scanned and loaded in to scannedProbes
+int numberOfLoadedTempProbes = 0;   // number of probes loaded from file
+
+const int oneWireBus = 4;
 const char *validConfSettings[] = {"hostname", "appname",
                                    "ssid", "wifipassword",
                                    "httpuser", "httppassword", "httpapitoken",
@@ -53,20 +86,25 @@ const char *validConfSettings[] = {"hostname", "appname",
                                    "telegrafenable", "telegrafserver", "telegrafserverport", "telegrafshiptime",
                                    "tempchecktime",
                                    "ntpserver", "ntptimezone", "ntpsynctime", "ntpwaitsynctime",
-                                   "pushoverenable", "pushoverapptoken", "pushoveruserkey", "pushoverdevice"};
+                                   "pushoverenable", "pushoverapptoken", "pushoveruserkey", "pushoverdevice",
+                                   "metric"
+                                  };
 
 // function defaults
 String listFiles(bool ishtml = false);
 void printLCD(String line1 = "", String line2 = "", String line3 = "", String line4 = "");
+String printTempProbe(int probeNumber = 0, bool printScale = true);
+String getESPTemp(bool printScale = true);
 
 // variables
-const char *filename = "/config.txt";   // filename where configuration is stored
-Config config;                          // configuration
-bool shouldReboot = false;              // schedule a reboot
-AsyncWebServer *server;                 // initialise webserver
-unsigned long telegrafLastRunTime = 0;  // keeps track of the time when the last metrics were shipped for influxdb
-unsigned long tempCheckLastRunTime = 0; // keeps track of the time when the last temp check was run
-String bootTime;                        // used to record when the device was booted
+const char *filename = "/config.txt";         // filename where configuration is stored
+const char *probesfilename = "/probes.txt";   // filename where configuration is stored
+Config config;                                // configuration
+bool shouldReboot = false;                    // schedule a reboot
+AsyncWebServer *server;                       // initialise webserver
+unsigned long telegrafLastRunTime = 0;        // keeps track of the time when the last metrics were shipped for influxdb
+unsigned long tempCheckLastRunTime = 0;       // keeps track of the time when the last temp check was run
+String bootTime;                              // used to record when the device was booted
 
 // internal ESP32 temp sensor
 #ifdef __cplusplus
@@ -92,6 +130,13 @@ ezDebugLevel_t NTPDEBUG = ERROR; // NONE, ERROR, INFO, DEBUG
 LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
 String lcdDisplay[LCDROWS];
 
+// OneWire
+OneWire oneWire(oneWireBus);
+
+// DS18B20
+DallasTemperature sensors(&oneWire);
+DeviceAddress insideThermometer, outsideThermometer;
+
 void setup() {
   Serial.begin(115200);
 
@@ -116,6 +161,16 @@ void setup() {
 
   loadConfiguration(filename, config);
   printConfig();
+
+  Serial.println("Initialising Temp Sensors");
+  sensors.begin();
+
+  numberOfTempProbes = sensors.getDeviceCount();
+  syslogSend("Found " + String(numberOfTempProbes) + " DS18B20 temperature probes upon boot");
+
+  myTempProbes = new TempProbe[numberOfTempProbes];
+
+  Serial.println("Loaded " + String(loadConfigurationProbes(probesfilename)) + " DS18B20 Probes from " + String(probesfilename));
 
   Serial.print("\nConnecting to Wifi: ");
   WiFi.begin(config.ssid.c_str(), config.wifipassword.c_str());
@@ -176,6 +231,15 @@ void setup() {
   myTZ.setLocation(config.ntptimezone);
   Serial.print(config.ntptimezone + ": "); Serial.println(printTime());
 
+  bootTime = printTime();
+  // loop 5 times until ntp time is received and update bootTime,
+  // if after 5 forced attempts, move on rather than sitting here forever,
+  // once ntp can be retrieved, time for the device will be updated, however
+  // bootime will still be recorded as "Thursday, 01-Jan-1970 00:00:00 GMT"
+  for (int i = 0; i < 5; i++) {
+    if (checkAndFixNTP() == true) { break; }
+  }
+
   syslogSend("Configuring Webserver ...");
   server = new AsyncWebServer(config.webserverporthttp);
   configureWebServer();
@@ -186,10 +250,75 @@ void setup() {
   // need to do a scan here, else first scan will fail.  Bug in scanNetworks
   WiFi.scanNetworks(true, true);
 
-  bootTime = printTime();
   syslogSend("Booted at: " + bootTime);
 
   printLCD("Ready", "Getting Temp");
+
+  /*
+  // need to reset_search before each scan
+  oneWire.reset_search();
+
+  // print all found devices and save into myTempProbes array
+  for (int i = 0; i < numberOfTempProbes; i++) {
+    myTempProbes[i].name = String(i);
+    if (!oneWire.search(myTempProbes[i].address)) {
+      Serial.print("Unable to find address for "); Serial.println(i);
+    }
+    myTempProbes[i].resolution = sensors.getResolution(myTempProbes[0].address);
+    Serial.println("Probe " + myTempProbes[i].name + " Address:" + giveStringDeviceAddress(myTempProbes[i].address) + "Resolution:" + String(myTempProbes[i].resolution));
+
+    // why is printAddress return in caps?
+    //printAddress(myTempProbes[i].address); Serial.println();
+  }
+  */
+
+  /*
+  Serial.println("BEFORE");
+  Serial.print("      Temp 0:"); printTemperature(myTempProbes[0].address); Serial.println();
+  Serial.print("   Address 0:"); printAddress(myTempProbes[0].address); Serial.println();
+  Serial.print("    Alarms 0:"); printAlarmsNew(myTempProbes[0].address); Serial.println();
+  Serial.print("Resolution 0:"); Serial.print(sensors.getResolution(myTempProbes[0].address), DEC); Serial.println();
+  sensors.setResolution(myTempProbes[0].address, 12);
+  Serial.println("AFTER 12");
+  Serial.print("      Temp 0:"); printTemperature(myTempProbes[0].address); Serial.println();
+  Serial.print("   Address 0:"); printAddress(myTempProbes[0].address); Serial.println();
+  Serial.print("    Alarms 0:"); printAlarmsNew(myTempProbes[0].address); Serial.println();
+  Serial.print("Resolution 0:"); Serial.print(sensors.getResolution(myTempProbes[0].address), DEC); Serial.println();
+  */
+
+  //Serial.println("Probe1 Temp:" + printTempProbe(0));
+  // search for devices on the bus and assign based on an index.
+  //if (!sensors.getAddress(insideThermometer, 0)) Serial.println("Unable to find address for Device 0");
+  //if (!sensors.getAddress(outsideThermometer, 1)) Serial.println("Unable to find address for Device 1");
+
+  // show the addresses we found on the bus
+  //Serial.print("Device 0 Address: ");
+  //printAddress(insideThermometer);
+  //Serial.println();
+
+  //Serial.print("Device 0 Alarms: ");
+  //printAlarms(insideThermometer);
+  //Serial.println();
+
+  /*
+    Serial.print("Device 1 Address: ");
+    printAddress(outsideThermometer);
+    Serial.println();
+
+    Serial.print("Device 1 Alarms: ");
+    printAlarms(outsideThermometer);
+    Serial.println();
+  */
+
+  /* sensors.setWaitForConversion(false);
+    sensors.requestTemperatures();
+
+    pinMode(oneWireBus, OUTPUT);
+    digitalWrite(oneWireBus, HIGH);
+    delay(750);
+  */
+  fixSetupDS18B20();
+  //Serial.println(sensors.getTempCByIndex(0));
 
 }
 
@@ -204,15 +333,26 @@ void loop() {
 
   // do nothing and return if trying to ship metrics too fast
   if ((millis() - telegrafLastRunTime) > (config.telegrafshiptime * 1000)) {
-    shipMetric("cputemp", getESPTemp());
+    shipMetric("cputemp", getESPTemp(false));
     shipMetric("wifisignal", String(WiFi.RSSI()));
     shipMetric("telegrafdelay", String(millis() - telegrafLastRunTime));
+    fixDS18B20();
+    //shipMetric("probe1temp", String(sensors.getTempCByIndex(0)));
+    shipMetric("probe1temp", printTempProbe(0, false));
     telegrafLastRunTime = millis();
   }
 
   if ((millis() - tempCheckLastRunTime) > (config.tempchecktime * 1000)) {
-    printLCD("CPUTemp", getESPTemp() + " C");
+    //sensors.setWaitForConversion(false);
+    //sensors.requestTemperatures();
+    //pinMode(oneWireBus, OUTPUT);
+    //digitalWrite(oneWireBus, HIGH);
+    //delay(750);
+    fixDS18B20();
+    //printLCD("  CPU:" + getESPTemp() + " C", "Probe:" + String(sensors.getTempCByIndex(0)) + " C");
+    printLCD("  CPU:" + getESPTemp(), "Probe:" + printTempProbe(0));
     //printLCD(getESPTemp() + " C", "");
+    //Serial.println(sensors.getTempCByIndex(0));
     tempCheckLastRunTime = millis();
   }
 
@@ -254,8 +394,20 @@ String i2cScanner() {
   return returnText;
 }
 
-String getESPTemp() {
-  return String((temprature_sens_read() - 32) / 1.8);
+String getESPTemp(bool printScale) {
+  String returnText;
+  if (config.metric) {
+    returnText += String((temprature_sens_read() - 32) / 1.8);
+    if (printScale) {
+      returnText += " C";
+    }
+  } else {
+    returnText += String(temprature_sens_read());
+    if (printScale) {
+      returnText += " F";
+    }
+  }
+  return returnText;
 }
 
 void rebootESP(String message) {
@@ -373,6 +525,7 @@ String getConfig() {
   configDoc["PushoverAppToken"] = config.pushoverapptoken;
   configDoc["PushoverUserKey"] = config.pushoveruserkey;
   configDoc["PushoverDevice"] = config.pushoverdevice;
+  configDoc["Metric"] = config.metric;
   String fullConfig = "";
   serializeJson(configDoc, fullConfig);
   return fullConfig;
@@ -387,10 +540,10 @@ String shortStatus() {
   shortStatusDoc["CPUTemp"] = getESPTemp();
   shortStatusDoc["Time"] = printTime();
   String lcdTable;
-    lcdTable += "<table>";
-    for (int i = 0; i < 4; i++) {
-      lcdTable += "<tr><td>Line " + String(i + 1) + ":</td><td>" + lcdDisplay[i] + "</td></tr>";
-    }
+  lcdTable += "<table>";
+  for (int i = 0; i < LCDROWS; i++) {
+    lcdTable += "<tr><td>Line " + String(i + 1) + ":</td><td>" + lcdDisplay[i] + "</td></tr>";
+  }
   lcdTable += "</table>";
   shortStatusDoc["LCD"] = lcdTable;
   String shortStatus = "";
@@ -430,4 +583,228 @@ String getTimeStatus() {
       myTimeStatus = "Unknown";
   }
   return myTimeStatus;
+}
+
+String printTempProbe(int probeNumber, bool printScale) {
+  String returnText;
+  if (config.metric) {
+    returnText += String(sensors.getTempCByIndex(0));
+    if (printScale) {
+      returnText += " C";
+    }
+  } else {
+    returnText += String(sensors.getTempFByIndex(0));
+    if (printScale) {
+      returnText += " F";
+    }
+  }
+  return returnText;
+}
+
+// returns true once time is fixed
+bool checkAndFixNTP() {
+  if (bootTime.startsWith("Thursday, 01-Jan-1970")) {
+    syslogSend("NTP Time not set, forcing an update");
+    delay(config.ntpwaitsynctime * 1000);
+    updateNTP();
+    bootTime = printTime();
+    return false;
+  } else {
+    return true;
+  }
+}
+
+String probeScannerOld() {
+  syslogSend("Scanning DS18B20 Temperature Probes");
+  DeviceAddress foundDevice;
+  char alarmHigh;
+  char alarmLow;
+
+  scannedProbes = new TempProbe[sensors.getDeviceCount()];
+
+  String returnText = "[";
+
+  // need to reset_search before each scan
+  oneWire.reset_search();
+
+  int i = 0;
+  while (oneWire.search(foundDevice)) {
+    if (returnText.length() > 1) returnText += ",";
+    returnText += "{";
+    returnText += "\"number\":" + String(i);
+    returnText += ",\"address\":\"" + giveStringDeviceAddress(foundDevice) + "\"";
+    returnText += ",\"resolution\":" + String(sensors.getResolution(foundDevice), DEC);
+    alarmLow = sensors.getLowAlarmTemp(foundDevice);
+    alarmHigh = sensors.getHighAlarmTemp(foundDevice);
+
+    // copy address
+    for (uint8_t j = 0; j < 8; j++) {
+      myTempProbes[i].address[j] = foundDevice[j];
+    }
+    scannedProbes[i].name = "Probe " + String(i);
+    scannedProbes[i].location = "Location " + String(i);
+    scannedProbes[i].resolution = sensors.getResolution(foundDevice);
+    scannedProbes[i].lowalarm = sensors.getLowAlarmTemp(foundDevice);
+    scannedProbes[i].highalarm = sensors.getHighAlarmTemp(foundDevice);
+
+    if (config.metric) {
+      returnText += ",\"lowalarm\":\"" + String(alarmLow, DEC) + " C" + "\"";
+      returnText += ",\"highalarm\":\"" + String(alarmHigh, DEC) + " C" + "\"";
+    } else {
+      returnText += ",\"lowalarm\":\"" + String(roundf(DallasTemperature::toFahrenheit(alarmLow) * 100) / 100) + " F" + "\"";
+      returnText += ",\"highalarm\":\"" + String(roundf(DallasTemperature::toFahrenheit(alarmHigh) * 100) / 100) + " F" + "\"";
+    }
+
+    returnText += "}";
+    i++;
+  }
+
+  // after scanning and finding probes, save the details to probes.txt
+  // saveConfigurationProbes(probesfilename);
+
+
+  //===============
+  // used to simulate a second probe being found
+  oneWire.reset_search();
+
+  while (oneWire.search(foundDevice)) {
+    if (returnText.length() > 1) returnText += ",";
+    returnText += "{";
+    returnText += "\"number\":" + String(i);
+    returnText += ",\"address\":\"" + giveStringDeviceAddress(foundDevice) + "\"";
+    returnText += ",\"resolution\":" + String(sensors.getResolution(foundDevice), DEC);
+    alarmLow = sensors.getLowAlarmTemp(foundDevice);
+    alarmHigh = sensors.getHighAlarmTemp(foundDevice);
+
+    if (config.metric) {
+      returnText += ",\"lowalarm\":\"" + String(alarmLow, DEC) + " C" + "\"";
+      returnText += ",\"highalarm\":\"" + String(alarmHigh, DEC) + " C" + "\"";
+    } else {
+      returnText += ",\"lowalarm\":\"" + String(roundf(DallasTemperature::toFahrenheit(alarmLow) * 100) / 100) + " F" + "\"";
+      returnText += ",\"highalarm\":\"" + String(roundf(DallasTemperature::toFahrenheit(alarmHigh) * 100) / 100) + " F" + "\"";
+    }
+
+    returnText += "}";
+    i++;
+  }
+  //===============
+  returnText += "]";
+  return returnText;
+}
+
+//===
+String probeScanner() {
+  syslogSend("Scanning DS18B20 Temperature Probes");
+  DeviceAddress foundDevice;
+  char alarmHigh;
+  char alarmLow;
+
+  int numberProbesFound = sensors.getDeviceCount();
+
+  if (numberProbesFound == 0) {
+    // if no probes have been found, return empty json
+    anyScannedProbes = false;
+    return "[]";
+  } else {
+    scannedProbes = new TempProbe[numberProbesFound];
+    anyScannedProbes = true;
+  }
+
+  String returnText = "[";
+
+  // need to reset_search before each scan
+  oneWire.reset_search();
+
+  int i = 0;
+  while (oneWire.search(foundDevice)) {
+    if (returnText.length() > 1) returnText += ",";
+    returnText += "{";
+
+    returnText += "\"number\":" + String(i);
+
+    int isDeviceKnown = checkTempProbeKnown(foundDevice);
+
+    if (isDeviceKnown == 0) {
+      // device is not one that has been loaded from file
+      returnText += ",\"name\":\"New Probe " + String(i) + "\"";
+      returnText += ",\"location\":\"New Location " + String(i) + "\"";
+      scannedProbes[i].name = "New Probe " + String(i);
+      scannedProbes[i].location = "New Location " + String(i);
+    } else {
+      // device is already known, its position in myTempProbes array is (isDeviceKnown - 1)
+      returnText += ",\"name\":\"" + myTempProbes[isDeviceKnown - 1].name  + "\"";
+      returnText += ",\"location\":\"" + myTempProbes[isDeviceKnown - 1].location  + "\"";
+      scannedProbes[i].name = myTempProbes[isDeviceKnown - 1].name;
+      scannedProbes[i].location = myTempProbes[isDeviceKnown - 1].location;
+    }
+
+    for (uint8_t j = 0; j < 8; j++) {
+      scannedProbes[i].address[j] = foundDevice[j];
+    }
+
+    scannedProbes[i].resolution = sensors.getResolution(foundDevice);
+    scannedProbes[i].lowalarm = sensors.getLowAlarmTemp(foundDevice);
+    scannedProbes[i].highalarm = sensors.getHighAlarmTemp(foundDevice);
+
+    returnText += ",\"address\":\"" + giveStringDeviceAddress(foundDevice) + "\"";
+    returnText += ",\"resolution\":" + String(sensors.getResolution(foundDevice), DEC);
+    alarmLow = sensors.getLowAlarmTemp(foundDevice);
+    alarmHigh = sensors.getHighAlarmTemp(foundDevice);
+
+    if (config.metric) {
+      returnText += ",\"lowalarm\":\"" + String(alarmLow, DEC) + " C" + "\"";
+      returnText += ",\"highalarm\":\"" + String(alarmHigh, DEC) + " C" + "\"";
+    } else {
+      returnText += ",\"lowalarm\":\"" + String(roundf(DallasTemperature::toFahrenheit(alarmLow) * 100) / 100) + " F" + "\"";
+      returnText += ",\"highalarm\":\"" + String(roundf(DallasTemperature::toFahrenheit(alarmHigh) * 100) / 100) + " F" + "\"";
+    }
+
+    returnText += "}";
+    i++;
+  }
+
+  returnText += "]";
+  return returnText;
+}
+
+//===
+void printMyTempProbes() {
+  for (int i = 0; i < numberOfTempProbes; i++) {
+    Serial.println("==============");
+    Serial.println(String(i) + "       name:" + myTempProbes[i].name);
+    Serial.println(String(i) + "   location:" + myTempProbes[i].location);
+    Serial.println(String(i) + "    address:" + giveStringDeviceAddress(myTempProbes[i].address));
+    Serial.println(String(i) + " resolution:" + myTempProbes[i].resolution);
+    Serial.println(String(i) + "   lowalarm:" + myTempProbes[i].lowalarm);
+    Serial.println(String(i) + "  highalarm:" + myTempProbes[i].highalarm);
+    //Serial.println(i + " :" + myTempProbes[i].);
+  }
+}
+
+String displayConfiguredProbes() {
+  syslogSend("Loading DS18B20 Temperature Probes");
+
+  // if no probes have been loaded, return empty json
+  if (numberOfLoadedTempProbes == 0) {
+    return "[]";
+  }
+
+  String returnText = "[";
+
+  int i = 0;
+  for (int i = 0; i < numberOfTempProbes; i++) {
+    if (returnText.length() > 1) returnText += ",";
+    returnText += "{";
+    returnText += "\"number\":" + String(i);
+    returnText += ",\"address\":\"" + giveStringDeviceAddress(myTempProbes[i].address) + "\"";
+    returnText += ",\"name\":\"" + myTempProbes[i].name + "\"";
+    returnText += ",\"location\":\"" + myTempProbes[i].location + "\"";
+    returnText += ",\"resolution\":" + String(myTempProbes[i].resolution, DEC);
+    returnText += ",\"lowalarm\":" + String(myTempProbes[i].lowalarm, DEC);
+    returnText += ",\"highalarm\":" + String(myTempProbes[i].highalarm, DEC);
+    returnText += "}";
+  }
+
+  returnText += "]";
+  return returnText;
 }

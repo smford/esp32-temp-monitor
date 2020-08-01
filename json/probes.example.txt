@@ -1,0 +1,22 @@
+{
+  "Probes": [
+    {
+      "number": 0,
+      "name": "Probe 0",
+      "location": "Location 0",
+      "address": "28ff9ba361150351",
+      "resolution": 12,
+      "lowalarm": 10,
+      "highalarm": 75
+    },
+    {
+      "number": 1,
+      "name": "Probe 1",
+      "location": "Location 1",
+      "address": "deadbeefcafe0130",
+      "resolution": 12,
+      "lowalarm": 10,
+      "highalarm": 75
+    }
+  ]
+}
