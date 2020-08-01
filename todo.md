@@ -16,6 +16,7 @@
 - rename syslogSend to logSend
 - add /fullstatus
 - if a setting is changed and requires a reboot, notify user
+- after scanning for probes, the saving of the newly discovered ones should be reconciled against any currently loaded ones
 
 # Done
 - figure out how to handle the 5v power needs

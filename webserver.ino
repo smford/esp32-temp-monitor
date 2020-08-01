@@ -37,6 +37,22 @@ String processor(const String& var) {
   if (var == "TIME") {
     return printTime();
   }
+
+  if (var == "SAVESPROBESSCAN") {
+    if (anyScannedProbes) {
+      return "";
+    } else {
+      return "disabled";
+    }
+  }
+
+  if (var == "ANYLOADEDPROBES") {
+    if (numberOfLoadedTempProbes > 0) {
+      return "";
+    } else {
+      return "disabled";
+    }
+  }
 }
 
 void configureWebServer() {
@@ -107,6 +123,24 @@ void configureWebServer() {
       logmessage += " Auth: Success";
       syslogSend(logmessage);
       request->send(200, "application/json", probeScanner());
+    } else {
+      logmessage += " Auth: Failed";
+      syslogSend(logmessage);
+      return request->requestAuthentication();
+    }
+  });
+
+  server->on("/scanprobessave", HTTP_GET, [](AsyncWebServerRequest * request) {
+    String logmessage = "Client:" + request->client()->remoteIP().toString() + " " + request->url();
+    if (checkUserWebAuth(request)) {
+      logmessage += " Auth: Success";
+      syslogSend(logmessage);
+      if (anyScannedProbes) {
+        saveConfigurationScannedProbes(probesfilename);
+        request->send(200, "application/json", "{\"message\":\"Saved " + String(numberOfTempProbes) + " Scanned Probes\",\"number\":" + String(numberOfTempProbes) + "}");
+      } else {
+        request->send(200, "application/json", "{\"message\":\"Please scan for probes first\"}");
+      }
     } else {
       logmessage += " Auth: Failed";
       syslogSend(logmessage);

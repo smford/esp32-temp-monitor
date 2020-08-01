@@ -407,3 +407,45 @@ int loadConfigurationProbes(const char *filename) {
   // return the number of loaded probes
   return numberOfLoadedTempProbes;
 }
+
+void saveConfigurationScannedProbes(const char *filename) {
+  // not using syslogSend here because it can be called before syslog has been configured
+
+  // Delete existing file, otherwise the configuration is appended to the file
+  SPIFFS.remove(filename);
+
+  // Open file for writing
+  File file = SPIFFS.open(filename, FILE_WRITE);
+  if (!file) {
+    Serial.println(F("Failed to create file"));
+    return;
+  }
+
+  StaticJsonDocument<1000> doc;
+
+  if (numberOfTempProbes > 0) {
+    JsonArray Probes = doc.createNestedArray("Probes");
+    JsonObject myProbes[numberOfTempProbes];
+
+    for (int i = 0; i < numberOfTempProbes; i++) {
+      myProbes[i] = Probes.createNestedObject();
+      myProbes[i]["number"] = i;
+      myProbes[i]["name"] = scannedProbes[i].name;
+      myProbes[i]["location"] = scannedProbes[i].location;
+      myProbes[i]["address"] = giveStringDeviceAddress(scannedProbes[i].address);
+      myProbes[i]["resolution"] = sensors.getResolution(scannedProbes[i].address);
+      myProbes[i]["lowalarm"] = sensors.getLowAlarmTemp(scannedProbes[i].address);
+      myProbes[i]["highalarm"] = sensors.getHighAlarmTemp(scannedProbes[i].address);
+    }
+  }
+
+  // Serialize JSON to file
+  if (serializeJson(doc, file) == 0) {
+    Serial.println(F("Failed to write to file"));
+  }
+
+  // need to print out the deserialisation to discern size
+
+  // Close the file
+  file.close();
+}

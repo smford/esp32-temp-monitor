@@ -39,6 +39,24 @@ String giveStringDeviceAddress(DeviceAddress deviceAddress)
   return returnText;
 }
 
+int checkTempProbeKnown(DeviceAddress deviceAddress) {
+  // if no probes have been loaded from file, return 0
+  if (numberOfLoadedTempProbes <= 0) {
+    return 0;
+  }
+
+
+  for (int i = 0; i < numberOfLoadedTempProbes; i++) {
+    if (giveStringDeviceAddress(deviceAddress) == giveStringDeviceAddress(myTempProbes[i].address)) {
+      // return the position in myTempProbes if device is already known
+      return i + 1;
+    }
+  }
+
+  // device not found, returning 0
+  return 0;
+}
+
 // function to print the temperature for a device
 void printTemperature(DeviceAddress deviceAddress)
 {

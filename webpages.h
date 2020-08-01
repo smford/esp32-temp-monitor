@@ -30,9 +30,9 @@ const char index_html[] PROGMEM = R"rawliteral(
   <button onclick="displayEditConfig()">Display/Edit Config</button>
   <button onclick="updateHeader()">Refresh Information</button>
   <button onclick="scani2c()">Scan I2C Devices</button>
-  <button onclick="scanProbes()">Scan and Save DS18B20 Temp Probes</button>
-  <button onclick="editProbes()">Load Known DS18B20 Temp Probes</button>
-  <button onclick="configureProbesButton()">Configure DS18B20 Temp Probes</button>
+  <button onclick="scanProbes()">Scan for DS18B20 Temp Probes</button>
+  <button id="saveprobes" onclick="saveProbes()" %SAVESPROBESSCAN%>Save Scanned DS18B20 Temp Probes</button>
+  <button id="editprobes" onclick="editProbes()" %ANYLOADEDPROBES%>Edit Known DS18B20 Temp Probes</button>
   <button onclick="displayWifi()">Display WiFi Networks</button>
   <button onclick="refreshNTP()">Refresh NTP</button>
   <button onclick="changeBacklightButton('on')">LCD Backlight On</button>
@@ -94,15 +94,33 @@ function scanProbes() {
   xmlhttp.open("GET", "/scanprobes", false);
   xmlhttp.send();
   var mydata = JSON.parse(xmlhttp.responseText);
-  var displaydata = "<table><tr><th align='left'>Number</th><th align='left'>Address</th><th align='left'>Bit Res</th><th align='left'>Low Alarm</th><th align='left'>High Alarm</th></tr>";
+  var displaydata = "<table><tr><th align='left'>Number</th><th align='left'>Name</th><th align='left'>Location</th><th align='left'>Address</th><th align='left'>Bit Res</th><th align='left'>Low Alarm</th><th align='left'>High Alarm</th></tr>";
   for (var key of Object.keys(mydata)) {
-    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>" + mydata[key]["address"] + "</td><td align='left'>" + mydata[key]["resolution"] + "</td><td align='left'>" + mydata[key]["lowalarm"] + "</td><td align='left'>" + mydata[key]["highalarm"] + "</td></tr>";
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td>" + "<td align='left'>" + mydata[key]["name"] + "</td><td align='left'>" + mydata[key]["location"] + "</td><td align='left'>" + mydata[key]["address"] + "</td><td align='left'>" + mydata[key]["resolution"] + "</td><td align='left'>" + mydata[key]["lowalarm"] + "</td><td align='left'>" + mydata[key]["highalarm"] + "</td></tr>";
   }
   displaydata = displaydata + "</table>";
+  if (mydata.count == 0) {
+    document.getElementById("saveprobes").disabled = true;
+  } else {
+    document.getElementById("saveprobes").disabled = false;
+  }
   document.getElementById("status").innerHTML = "DS18B20 Temperature Probes Scanned";
   document.getElementById("detailsheader").innerHTML = "<h3>Found DS18B20 Temperature Probes<h3>";
   document.getElementById("details").innerHTML = displaydata;
 }
+//========
+function saveProbes() {
+  document.getElementById("status").innerHTML = "Saving Scanned DS18B20 Temperature Probes";
+  xmlhttp=new XMLHttpRequest();
+  xmlhttp.open("GET", "/scanprobessave", false);
+  xmlhttp.send();
+  var mydata = JSON.parse(xmlhttp.responseText);
+  if (mydata["number"] > 0) {
+    document.getElementById("editprobes").disabled = false;
+  }
+  document.getElementById("status").innerHTML = mydata["message"];
+}
+//========
 function updateHeader() {
   xmlhttp=new XMLHttpRequest();
   xmlhttp.open("GET", "/shortstatus", false);
