@@ -19,6 +19,8 @@
 - clean up probescanner, comments and other junk
 - check the json doc size
 - sometimes when on the main page, it will not download all of the page, this is most often seen when trying to listfiles
+- disable the "default ds18b20 device and instead use the loaded ones
+- implement logging around the probe scanning, saving and loading
 
 # Done
 - after scanning for probes, the saving of the newly discovered ones should be reconciled against any currently loaded ones
