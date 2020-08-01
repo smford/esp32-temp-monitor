@@ -117,6 +117,7 @@ function saveProbes() {
   var mydata = JSON.parse(xmlhttp.responseText);
   if (mydata["number"] > 0) {
     document.getElementById("editprobes").disabled = false;
+    document.getElementById("saveprobes").disabled = true;
   }
   document.getElementById("status").innerHTML = mydata["message"];
 }

@@ -446,6 +446,12 @@ void saveConfigurationScannedProbes(const char *filename) {
 
   // need to print out the deserialisation to discern size
 
+  // disable because scanned probes have now been saved
+  anyScannedProbes = false;
+
+  // delete the scannedProbes
+  delete[] scannedProbes;
+
   // Close the file
   file.close();
 }

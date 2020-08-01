@@ -153,6 +153,11 @@ void configureWebServer() {
     if (checkUserWebAuth(request)) {
       logmessage += " Auth: Success";
       syslogSend(logmessage);
+      // force a reload from probesfilename
+      delete[] myTempProbes;
+      numberOfLoadedTempProbes = 0;
+      myTempProbes = new TempProbe[numberOfTempProbes];
+      Serial.println("Loaded " + String(loadConfigurationProbes(probesfilename)) + " DS18B20 Probes from " + String(probesfilename));
       request->send(200, "application/json", displayConfiguredProbes());
     } else {
       logmessage += " Auth: Failed";
