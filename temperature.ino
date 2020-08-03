@@ -16,6 +16,22 @@ void fixDS18B20() {
   sensors.requestTemperatures();
 }
 
+String printTempProbe(DeviceAddress deviceAddress, bool printScale) {
+  String returnText;
+  if (config.metric) {
+    returnText += String(sensors.getTempC(deviceAddress));
+    if (printScale) {
+      returnText += " C";
+    }
+  } else {
+    returnText += String(roundf(DallasTemperature::toFahrenheit(sensors.getTempC(deviceAddress)) * 100) / 100);
+    if (printScale) {
+      returnText += " F";
+    }
+  }
+  return returnText;
+}
+
 // function to print a device address
 void printAddress(DeviceAddress deviceAddress)
 {

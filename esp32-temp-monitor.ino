@@ -15,7 +15,7 @@
 #include "webpages.h"
 #include "defaults.h"
 
-#define FIRMWARE_VERSION "v0.1.2.17"
+#define FIRMWARE_VERSION "v0.1.2.18"
 #define LCDWIDTH 16
 #define LCDROWS 2
 
@@ -76,6 +76,7 @@ TempProbe *scannedProbes;           // probes that have been found whilst scanni
 int numberOfTempProbes;             // number of probes found when scanned
 bool anyScannedProbes = false;      // have any probes been scanned and loaded in to scannedProbes
 int numberOfLoadedTempProbes = 0;   // number of probes loaded from file
+bool serialDebug = true;            // when true display more debugging information on serial
 
 const int oneWireBus = 4;
 const char *validConfSettings[] = {"hostname", "appname",
@@ -93,7 +94,7 @@ const char *validConfSettings[] = {"hostname", "appname",
 // function defaults
 String listFiles(bool ishtml = false);
 void printLCD(String line1 = "", String line2 = "", String line3 = "", String line4 = "");
-String printTempProbe(int probeNumber = 0, bool printScale = true);
+String printTempProbe(DeviceAddress deviceAddress, bool printScale = true);
 String getESPTemp(bool printScale = true);
 
 // variables
@@ -254,72 +255,7 @@ void setup() {
 
   printLCD("Ready", "Getting Temp");
 
-  /*
-  // need to reset_search before each scan
-  oneWire.reset_search();
-
-  // print all found devices and save into myTempProbes array
-  for (int i = 0; i < numberOfTempProbes; i++) {
-    myTempProbes[i].name = String(i);
-    if (!oneWire.search(myTempProbes[i].address)) {
-      Serial.print("Unable to find address for "); Serial.println(i);
-    }
-    myTempProbes[i].resolution = sensors.getResolution(myTempProbes[0].address);
-    Serial.println("Probe " + myTempProbes[i].name + " Address:" + giveStringDeviceAddress(myTempProbes[i].address) + "Resolution:" + String(myTempProbes[i].resolution));
-
-    // why is printAddress return in caps?
-    //printAddress(myTempProbes[i].address); Serial.println();
-  }
-  */
-
-  /*
-  Serial.println("BEFORE");
-  Serial.print("      Temp 0:"); printTemperature(myTempProbes[0].address); Serial.println();
-  Serial.print("   Address 0:"); printAddress(myTempProbes[0].address); Serial.println();
-  Serial.print("    Alarms 0:"); printAlarmsNew(myTempProbes[0].address); Serial.println();
-  Serial.print("Resolution 0:"); Serial.print(sensors.getResolution(myTempProbes[0].address), DEC); Serial.println();
-  sensors.setResolution(myTempProbes[0].address, 12);
-  Serial.println("AFTER 12");
-  Serial.print("      Temp 0:"); printTemperature(myTempProbes[0].address); Serial.println();
-  Serial.print("   Address 0:"); printAddress(myTempProbes[0].address); Serial.println();
-  Serial.print("    Alarms 0:"); printAlarmsNew(myTempProbes[0].address); Serial.println();
-  Serial.print("Resolution 0:"); Serial.print(sensors.getResolution(myTempProbes[0].address), DEC); Serial.println();
-  */
-
-  //Serial.println("Probe1 Temp:" + printTempProbe(0));
-  // search for devices on the bus and assign based on an index.
-  //if (!sensors.getAddress(insideThermometer, 0)) Serial.println("Unable to find address for Device 0");
-  //if (!sensors.getAddress(outsideThermometer, 1)) Serial.println("Unable to find address for Device 1");
-
-  // show the addresses we found on the bus
-  //Serial.print("Device 0 Address: ");
-  //printAddress(insideThermometer);
-  //Serial.println();
-
-  //Serial.print("Device 0 Alarms: ");
-  //printAlarms(insideThermometer);
-  //Serial.println();
-
-  /*
-    Serial.print("Device 1 Address: ");
-    printAddress(outsideThermometer);
-    Serial.println();
-
-    Serial.print("Device 1 Alarms: ");
-    printAlarms(outsideThermometer);
-    Serial.println();
-  */
-
-  /* sensors.setWaitForConversion(false);
-    sensors.requestTemperatures();
-
-    pinMode(oneWireBus, OUTPUT);
-    digitalWrite(oneWireBus, HIGH);
-    delay(750);
-  */
   fixSetupDS18B20();
-  //Serial.println(sensors.getTempCByIndex(0));
-
 }
 
 void loop() {
@@ -335,29 +271,29 @@ void loop() {
   if ((millis() - telegrafLastRunTime) > (config.telegrafshiptime * 1000)) {
     shipMetric("cputemp", getESPTemp(false));
     shipMetric("wifisignal", String(WiFi.RSSI()));
+
+    // remove this
     shipMetric("telegrafdelay", String(millis() - telegrafLastRunTime));
+
+    if (numberOfLoadedTempProbes > 0) {
     fixDS18B20();
-    //shipMetric("probe1temp", String(sensors.getTempCByIndex(0)));
-    shipMetric("probe1temp", printTempProbe(0, false));
+      for (int i = 0; i < numberOfLoadedTempProbes; i++) {
+        String cleanName = myTempProbes[i].name;
+        cleanName.replace(" ", "_");
+        cleanName.toLowerCase();
+        shipMetric("probe-" + cleanName, printTempProbe(myTempProbes[i].address, false));
+      }
+    }
     telegrafLastRunTime = millis();
   }
 
   if ((millis() - tempCheckLastRunTime) > (config.tempchecktime * 1000)) {
-    //sensors.setWaitForConversion(false);
-    //sensors.requestTemperatures();
-    //pinMode(oneWireBus, OUTPUT);
-    //digitalWrite(oneWireBus, HIGH);
-    //delay(750);
     fixDS18B20();
-    //printLCD("  CPU:" + getESPTemp() + " C", "Probe:" + String(sensors.getTempCByIndex(0)) + " C");
-    printLCD("  CPU:" + getESPTemp(), "Probe:" + printTempProbe(0));
-    //printLCD(getESPTemp() + " C", "");
-    //Serial.println(sensors.getTempCByIndex(0));
+    printLCD("  CPU:" + getESPTemp(), "Probe:" + printTempProbe(myTempProbes[0].address));
     tempCheckLastRunTime = millis();
   }
 
 }
-
 
 String i2cScanner() {
   byte error, address;
@@ -456,7 +392,9 @@ String humanReadableSize(const size_t bytes) {
 
 void shipMetric(String metric, String value) {
   String line = config.appname + "-" + metric + " value=" + value;
-  //Serial.print("Shipping: "); Serial.println(line);
+  if (serialDebug) {
+    Serial.print("Shipping: "); Serial.println(line);
+  }
   udpClient.beginPacket(config.telegrafserver.c_str(), config.telegrafserverport);
   udpClient.print(line);
   udpClient.endPacket();
@@ -585,22 +523,6 @@ String getTimeStatus() {
   return myTimeStatus;
 }
 
-String printTempProbe(int probeNumber, bool printScale) {
-  String returnText;
-  if (config.metric) {
-    returnText += String(sensors.getTempCByIndex(0));
-    if (printScale) {
-      returnText += " C";
-    }
-  } else {
-    returnText += String(sensors.getTempFByIndex(0));
-    if (printScale) {
-      returnText += " F";
-    }
-  }
-  return returnText;
-}
-
 // returns true once time is fixed
 bool checkAndFixNTP() {
   if (bootTime.startsWith("Thursday, 01-Jan-1970")) {
@@ -699,21 +621,26 @@ String probeScanner() {
   char alarmHigh;
   char alarmLow;
 
-  int numberProbesFound = sensors.getDeviceCount();
+  // need to reset_search before each scan
+  oneWire.reset_search();
 
-  if (numberProbesFound == 0) {
+  //int numberProbesFound = sensors.getDeviceCount();
+  numberOfTempProbes = sensors.getDeviceCount();
+  syslogSend("Found " + String(numberOfTempProbes) + " DS18B20 Probes");
+
+  if (numberOfTempProbes == 0) {
     // if no probes have been found, return empty json
     anyScannedProbes = false;
+    //delete[] scannedProbes;
     return "[]";
   } else {
-    scannedProbes = new TempProbe[numberProbesFound];
+    // delete any scanned probes already in memory because we are doing a new scan
+    delete[] scannedProbes;
+    scannedProbes = new TempProbe[numberOfTempProbes];
     anyScannedProbes = true;
   }
 
   String returnText = "[";
-
-  // need to reset_search before each scan
-  oneWire.reset_search();
 
   int i = 0;
   while (oneWire.search(foundDevice)) {
