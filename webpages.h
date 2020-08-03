@@ -274,10 +274,6 @@ function errorHandler(event) {
 function abortHandler(event) {
   _("status").innerHTML = "Upload Aborted";
 }
-function configureProbesButton() {
-  document.getElementById("status").innerHTML = "Configuring Probes";
-  window.open("/configureprobes","_self");
-}
 function editProbes() {
   document.getElementById("status").innerHTML = "Loading Known DS18B20 Temperature Probes";
   xmlhttp=new XMLHttpRequest();
