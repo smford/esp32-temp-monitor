@@ -82,6 +82,7 @@ void printTempProbesSerial(){
     Serial.println(String(i) + " resolution:" + myTempProbes[i].resolution);
     Serial.println(String(i) + "   lowalarm:" + myTempProbes[i].lowalarm);
     Serial.println(String(i) + "  highalarm:" + myTempProbes[i].highalarm);
+    Serial.println(String(i) + "temperature:" + printTempProbe(myTempProbes[i].address, true));
   }
 }
 
@@ -106,6 +107,7 @@ String displayConfiguredProbes() {
     returnText += ",\"resolution\":" + String(myTempProbes[i].resolution, DEC);
     returnText += ",\"lowalarm\":" + String(myTempProbes[i].lowalarm, DEC);
     returnText += ",\"highalarm\":" + String(myTempProbes[i].highalarm, DEC);
+    returnText += ",\"temperature\":\"" + printTempProbe(myTempProbes[i].address, true) + "\"";
     returnText += "}";
   }
 
@@ -150,17 +152,16 @@ String probeScanner() {
 
     if (isDeviceKnown == 0) {
       // device is not one that has been loaded from file
-      returnText += ",\"name\":\"New Probe " + String(i) + "\"";
-      returnText += ",\"location\":\"New Location " + String(i) + "\"";
       scannedProbes[i].name = "New Probe " + String(i);
       scannedProbes[i].location = "New Location " + String(i);
     } else {
       // device is already known, its position in myTempProbes array is (isDeviceKnown - 1)
-      returnText += ",\"name\":\"" + myTempProbes[isDeviceKnown - 1].name  + "\"";
-      returnText += ",\"location\":\"" + myTempProbes[isDeviceKnown - 1].location  + "\"";
       scannedProbes[i].name = myTempProbes[isDeviceKnown - 1].name;
       scannedProbes[i].location = myTempProbes[isDeviceKnown - 1].location;
     }
+
+    returnText += ",\"name\":\"" + scannedProbes[i].name + "\"";
+    returnText += ",\"location\":\"" + scannedProbes[i].location + "\"";
 
     for (uint8_t j = 0; j < 8; j++) {
       scannedProbes[i].address[j] = foundDevice[j];
@@ -182,6 +183,8 @@ String probeScanner() {
       returnText += ",\"lowalarm\":\"" + String(roundf(DallasTemperature::toFahrenheit(alarmLow) * 100) / 100) + " F" + "\"";
       returnText += ",\"highalarm\":\"" + String(roundf(DallasTemperature::toFahrenheit(alarmHigh) * 100) / 100) + " F" + "\"";
     }
+
+    returnText += ",\"temperature\":\"" + printTempProbe(scannedProbes[i].address, true) + "\"";
 
     returnText += "}";
     i++;

@@ -25,12 +25,12 @@
 - handle alarms
 - upon setup when probes are loaded, apply any settings from json to probe
 - change Metric to being Scale=c or f
-- when scanning, present current temp
 - add a debug mode
 - add event actions
 - display current temps on main page
 
 # Done
+- when scanning, present current temp
 - clean up probescanner, comments and other junk
 - after scanning for probes, the saving of the newly discovered ones should be reconciled against any currently loaded ones
 - figure out how to handle the 5v power needs

@@ -94,9 +94,24 @@ function scanProbes() {
   xmlhttp.open("GET", "/scanprobes", false);
   xmlhttp.send();
   var mydata = JSON.parse(xmlhttp.responseText);
-  var displaydata = "<table><tr><th align='left'>Number</th><th align='left'>Name</th><th align='left'>Location</th><th align='left'>Address</th><th align='left'>Bit Res</th><th align='left'>Low Alarm</th><th align='left'>High Alarm</th></tr>";
+  var displaydata = "<table>";
+  displaydata = displaydata + "<tr><th align='left'>Number</th>";
+  displaydata = displaydata + "<th align='left'>Name</th>";
+  displaydata = displaydata + "<th align='left'>Location</th>";
+  displaydata = displaydata + "<th align='left'>Address</th>";
+  displaydata = displaydata + "<th align='left'>Current Temperature</th>";
+  displaydata = displaydata + "<th align='left'>Bit Res</th>";
+  displaydata = displaydata + "<th align='left'>Low Alarm</th>";
+  displaydata = displaydata + "<th align='left'>High Alarm</th></tr>";
   for (var key of Object.keys(mydata)) {
-    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td>" + "<td align='left'>" + mydata[key]["name"] + "</td><td align='left'>" + mydata[key]["location"] + "</td><td align='left'>" + mydata[key]["address"] + "</td><td align='left'>" + mydata[key]["resolution"] + "</td><td align='left'>" + mydata[key]["lowalarm"] + "</td><td align='left'>" + mydata[key]["highalarm"] + "</td></tr>";
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td>";
+    displaydata = displaydata + "<td align='left'>" + mydata[key]["name"] + "</td>";
+    displaydata = displaydata + "<td align='left'>" + mydata[key]["location"] + "</td>";
+    displaydata = displaydata + "<td align='left'>" + mydata[key]["address"] + "</td>";
+    displaydata = displaydata + "<td align='left'>" + mydata[key]["temperature"] + "</td>";
+    displaydata = displaydata + "<td align='left'>" + mydata[key]["resolution"] + "</td>";
+    displaydata = displaydata + "<td align='left'>" + mydata[key]["lowalarm"] + "</td>";
+    displaydata = displaydata + "<td align='left'>" + mydata[key]["highalarm"] + "</td></tr>";
   }
   displaydata = displaydata + "</table>";
   if (mydata.count == 0) {
@@ -108,7 +123,6 @@ function scanProbes() {
   document.getElementById("detailsheader").innerHTML = "<h3>Found DS18B20 Temperature Probes<h3>";
   document.getElementById("details").innerHTML = displaydata;
 }
-//========
 function saveProbes() {
   document.getElementById("status").innerHTML = "Saving Scanned DS18B20 Temperature Probes";
   xmlhttp=new XMLHttpRequest();
@@ -121,7 +135,6 @@ function saveProbes() {
   }
   document.getElementById("status").innerHTML = mydata["message"];
 }
-//========
 function updateHeader() {
   xmlhttp=new XMLHttpRequest();
   xmlhttp.open("GET", "/shortstatus", false);
@@ -275,6 +288,7 @@ function editProbes() {
   for (var key of Object.keys(mydata)) {
     displaydata = displaydata + "<table><tr><th align='left'>ID</th><th align='left'>Setting</th><th align='left'>Current</th><th align='left'>New</th></tr>";
     displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Address</td><td align='left'>" + mydata[key]["address"] + "</td><td></td></tr>";
+    displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Current Temperature</td><td align='left'>" + mydata[key]["temperature"] + "</td><td></td></tr>";
     displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Name</td><td align='left'>" + mydata[key]["name"] + "</td><td align='left'><form method='POST' onsubmit='return submitFormProbes(this);' action='/setprobe?probe=" + mydata[key]["number"] + "'><input type='text' name='name'>" + "<input type='submit' value='Submit'></form></td></tr>";
     displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Location</td><td align='left'>" + mydata[key]["location"] + "</td><td align='left'><form method='POST' onsubmit='return submitFormProbes(this);' action='/setprobe?probe=" + mydata[key]["number"] + "'><input type='text' name='location'>" + "<input type='submit' value='Submit'></form></td></tr>";
     displaydata = displaydata + "<tr><td align='left'>" + mydata[key]["number"] + "</td><td align='left'>Bit Resolution</td><td align='left'>" + mydata[key]["resolution"] + "</td><td align='left'><form method='POST' onsubmit='return submitFormProbes(this);' action='/setprobe?probe=" + mydata[key]["number"] + "'><input type='text' name='resolution'>" + "<input type='submit' value='Submit'></form></td></tr>";
